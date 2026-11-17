@@ -1,0 +1,16 @@
+// Override signing only for the selected APK build in the offline Android project.
+gradle.beforeProject { project ->
+    if (project.path != ':simpleDemo') {
+        return
+    }
+    project.pluginManager.withPlugin('com.android.application') {
+        project.extensions.getByName('androidComponents').finalizeDsl { android ->
+            def signing = android.signingConfigs.maybeCreate('packToolSelected')
+            signing.storeFile = project.file(System.getenv('PACK_TOOL_SIGNING_FILE'))
+            signing.keyAlias = System.getenv('PACK_TOOL_SIGNING_ALIAS')
+            signing.storePassword = System.getenv('PACK_TOOL_SIGNING_STORE_PASSWORD')
+            signing.keyPassword = System.getenv('PACK_TOOL_SIGNING_KEY_PASSWORD')
+            android.buildTypes.getByName(System.getenv('PACK_TOOL_SIGNING_BUILD_TYPE')).signingConfig = signing
+        }
+    }
+}

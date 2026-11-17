@@ -86,6 +86,12 @@ DEFAULT_CONFIG = {
         "packageName": "",
         "permissions": ["INTERNET", "ACCESS_NETWORK_STATE", "CAMERA", "WRITE_EXTERNAL_STORAGE", "READ_EXTERNAL_STORAGE", "READ_MEDIA_IMAGES", "REQUEST_INSTALL_PACKAGES", "VIBRATE", "WAKE_LOCK"],
     },
+    "signing": {
+        "keystorePath": "",
+        "keyAlias": "",
+        "storePasswordEnv": "PACK_TOOL_KEYSTORE_PASSWORD",
+        "keyPasswordEnv": "",
+    },
     "build": {
         "buildType": "debug",  # debug / release
         "platform": "apk",     # apk / web / wgt

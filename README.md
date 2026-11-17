@@ -13,7 +13,7 @@
   - App 名称、图标、包名、版本号
   - 权限（勾选：相机/扫码/联网/存储/安装APK 等 17 项）
   - 路径（HBuilderX CLI、uni-app 项目目录、离线工程目录、JDK、adb、输出目录、Web 输出目录）——**支持"浏览…"按钮弹系统选择框**
-  - 签名（keystore 路径/密码，通过 gradle 配置）
+  - Android 签名（每个应用可选择自己的签名文件和密钥别名）
 - **打包目标**（一键切换）：
   - `Android APK`：HBuilderX 编译 appResource → 同步资源 → Gradle 离线打包
   - `网站-PC Web` / `手机H5`：利用 HBuilderX 发行能力（`cli publish web`）生成 Web 产物
@@ -98,11 +98,27 @@ npm run dev        # http://localhost:5173，/api 自动代理到 8765
 ### Android 离线打包准备
 
 1. 按 [DCloud Android 离线开发文档](https://nativesupport.dcloud.net.cn/AppDocs/usesdk/android) 自行获取与 HBuilderX 匹配的离线 SDK，并配置 Android SDK、JDK 和 [DCloud AppKey](https://nativesupport.dcloud.net.cn/AppDocs/usesdk/appkey)。用 SDK 自带的 `HBuilder-Integrate-AS` 工程副本进行打包。
-2. 在「路径配置」填写离线工程根目录，其中应有 `gradlew.bat` 和 `simpleDemo`。Release 签名在离线工程的 Gradle 配置中设置。
+2. 在「路径配置」填写离线工程根目录，其中应有 `gradlew.bat` 和 `simpleDemo`。
 3. 在「依赖包」页查看当前启用的文件名，从自己下载的 SDK 或其他授权来源把对应 `.aar` / `.jar` 放入本工具的 `packages/`。额外插件可在界面上传。对照离线工程的实际依赖选择勾选项，再执行同步。
 4. 在「打包构建」运行构建前检查，然后先试打 Debug APK。
 
 APK 构建会替换离线工程中的应用资源，并修改 Manifest、Gradle 配置和应用图标。同步依赖时，取消勾选的托管依赖会从 `simpleDemo/libs` 移除。APK 和 WGT 构建还会把界面填写的版本号写回 uni-app 项目的 `manifest.json`。首次试用建议使用工程副本。
+
+### 为每个应用选择 Android 签名
+
+1. 切换到要打包的应用，打开「应用信息 → Android 签名」，选择本机的 `.jks` 或 `.keystore` 文件并填写密钥别名（Key Alias）。
+2. 填写**环境变量名**，例如 `DEMO_STORE_PASSWORD`。如果密钥密码和密钥库密码不同，再填写单独的变量名，例如 `DEMO_KEY_PASSWORD`。每个应用可以使用不同的变量名。
+3. 在运行打包工具的 Windows 用户下设置这些环境变量。已启动工具时，停止本地服务再重新启动，使服务读取新变量。
+4. 保存配置并在「打包构建」运行构建前检查。所选密钥同时适用于该应用的 Debug 和 Release APK。留空签名文件时沿用离线工程的 Gradle 签名，旧应用配置可以继续使用。
+
+也可以只为当前 PowerShell 会话设置密码，再从同一个窗口启动服务。下面的命令会提示输入，避免把密码写进命令历史。
+
+```powershell
+$env:DEMO_STORE_PASSWORD = [System.Net.NetworkCredential]::new('', (Read-Host '密钥库密码' -AsSecureString)).Password
+python -m server
+```
+
+打包工具只保存文件路径、别名和变量名，密码在构建时通过进程环境传给 Gradle。按应用签名需要支持 `finalizeDsl` 的 Android Gradle Plugin（AGP 7.2+）。签名文件及密码保存在本机。更换签名前请确认 DCloud 后台配置的 AppID、包名及证书 SHA-1 和实际 APK 一致。
 
 ## 打包流程（脚本内部）
 
@@ -195,3 +211,7 @@ A: 权限写入的是离线工程的 `AndroidManifest.xml`，改后必须重新�
 ## 许可证
 
 本仓库中的工具源码采用 [MIT License](LICENSE)。HBuilderX、DCloud Android 离线 SDK、第三方插件和库由各自的权利人提供，请从授权来源获取并按对应条款使用。
+
+## 提交代码
+
+每次修改都从最新的 `main` 新建分支。在分支上验证、提交和推送，再向 `main` 发起 Pull Request 并通过 GitHub 合并。仓库保护规则禁止直接推送到 `main`。
