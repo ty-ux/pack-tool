@@ -1,0 +1,44 @@
+# 本地环境与依赖
+__pycache__/
+*.py[cod]
+.venv/
+node_modules/
+/web/dist/
+*.tsbuildinfo
+
+# 本地应用配置、插件、图标与构建数据
+/config/
+/packages/
+/icon/
+/data/
+/logs/
+/output/
+/agent-browser-test.png
+*.db
+*.db-*
+*.sqlite*
+*.log
+
+# 第三方二进制、Android 产物和签名材料
+*.[aA][aA][rR]
+*.[jJ][aA][rR]
+*.[aA][pP][kK]
+*.[aA][aA][bB]
+*.[wW][gG][tT]
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.pem
+*.key
+.env
+.env.*
+
+# 编辑器和本地工具状态
+.claude/
+.codegraph/
+.omc/
+.omo/
+.codex/
+.vscode/
+.idea/

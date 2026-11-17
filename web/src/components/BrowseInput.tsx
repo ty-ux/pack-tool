@@ -1,0 +1,72 @@
+import { useState } from 'react'
+import { App, Button, Input, Space } from 'antd'
+import { FolderOpenOutlined } from '@ant-design/icons'
+import { browse } from '../api'
+
+interface Props {
+  value: string
+  onChange: (value: string) => void
+  kind: 'dir' | 'file'
+  placeholder?: string
+  title?: string
+  fileFilter?: string
+  mono?: boolean
+  browseLabel?: string
+  /** 额外一个选择按钮，用于既支持文件又支持目录的输入项 */
+  extraBrowse?: { kind: 'dir' | 'file'; label: string; title?: string }
+}
+
+/** 路径输入 + "浏览..."（调后端弹系统选择框回填绝对路径） */
+export function BrowseInput({
+  value,
+  onChange,
+  kind,
+  placeholder,
+  title,
+  fileFilter,
+  mono = true,
+  browseLabel = '浏览',
+  extraBrowse,
+}: Props) {
+  const { message } = App.useApp()
+  const [busy, setBusy] = useState(false)
+
+  const pick = async (type: 'dir' | 'file', dialogTitle?: string) => {
+    setBusy(true)
+    try {
+      const res = await browse({ type, title: dialogTitle, fileFilter })
+      if (res.ok) {
+        onChange(res.path)
+      }
+      // 用户取消对话框静默即可
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '选择失败')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Space.Compact style={{ width: '100%', display: 'flex' }}>
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={mono ? 'mono-input' : undefined}
+        allowClear
+      />
+      <Button icon={<FolderOpenOutlined />} onClick={() => pick(kind, title)} loading={busy}>
+        {browseLabel}
+      </Button>
+      {extraBrowse && (
+        <Button
+          icon={<FolderOpenOutlined />}
+          onClick={() => pick(extraBrowse.kind, extraBrowse.title ?? title)}
+          loading={busy}
+        >
+          {extraBrowse.label}
+        </Button>
+      )}
+    </Space.Compact>
+  )
+}
