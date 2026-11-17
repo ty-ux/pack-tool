@@ -11,6 +11,12 @@ export interface AppConfig {
     packageName: string
     permissions: string[]
   }
+  signing: {
+    keystorePath: string
+    keyAlias: string
+    storePasswordEnv: string
+    keyPasswordEnv: string
+  }
   build: {
     buildType: 'debug' | 'release'
     platform: 'apk' | 'web' | 'wgt'

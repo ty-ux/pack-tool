@@ -6,6 +6,7 @@ import shutil
 from . import adb as adb_mod
 from . import config as config_mod
 from . import packages as packages_mod
+from .signing import signing_error
 
 PACKAGE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$")
 DRAWABLE_ICON_DIRS = (
@@ -207,6 +208,12 @@ def run_preflight() -> dict:
     else:
         add("output", "环境与路径", "输出目录", "warn", f"父目录不存在，请先创建：{output_dir}")
 
+    selected_keystore = str((cfg.get("signing") or {}).get("keystorePath") or "").strip()
+    if selected_keystore:
+        error = signing_error(cfg)
+        add("keystore", "签名与发布", "应用签名", "error" if error else "ok",
+            error or f"本次 APK 将使用 {selected_keystore} 中选定的密钥")
+
     # 依赖包
     try:
         packages = packages_mod.load_packages()
@@ -254,14 +261,15 @@ def run_preflight() -> dict:
         else:
             add("sdk", "Android 工程", "SDK 版本", "ok", detail)
 
-        store = re.search(r"storeFile\s+file\(\s*['\"]([^'\"]+)['\"]\s*\)", gradle_text)
-        store_path = store.group(1).replace("\\\\", "\\") if store else ""
-        if not store_path:
-            add("keystore", "签名与发布", "签名文件", "warn", "build.gradle 中没有找到 storeFile 配置，构建会使用未签名或默认签名")
-        elif not os.path.isfile(store_path):
-            add("keystore", "签名与发布", "签名文件", "error", f"keystore 不存在：{store_path}")
-        else:
-            add("keystore", "签名与发布", "签名文件", "ok", store_path)
+        if not selected_keystore:
+            store = re.search(r"storeFile\s+file\(\s*['\"]([^'\"]+)['\"]\s*\)", gradle_text)
+            store_path = os.path.join(simple_demo, store.group(1).replace("\\\\", "\\")) if store else ""
+            if not store_path:
+                add("keystore", "签名与发布", "签名文件", "warn", "未选择应用签名，将沿用离线工程的 Gradle 签名设置")
+            elif not os.path.isfile(store_path):
+                add("keystore", "签名与发布", "签名文件", "error", f"keystore 不存在：{store_path}")
+            else:
+                add("keystore", "签名与发布", "签名文件", "ok", store_path)
 
         if re.search(r"(keyPassword|storePassword)\s+['\"][^'\"]+['\"]", gradle_text):
             add(

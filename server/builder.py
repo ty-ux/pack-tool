@@ -11,6 +11,7 @@ from .adb import find_adb
 from . import history as history_mod
 from . import packages as packages_mod
 from .paths import BUILD_LOG, LOGS_DIR, SCRIPTS_DIR, fspath
+from .signing import signing_error
 
 CREATE_NO_WINDOW = 0x08000000
 
@@ -87,6 +88,8 @@ class BuildManager:
             if platform in ("apk", "wgt") and not re.fullmatch(r"[A-Za-z0-9_-]+", app_id):
                 raise ValueError("请填写 manifest.json 中的 AppID，格式为字母、数字、下划线或连字符")
             cfg["app"]["appid"] = app_id
+            if platform == "apk" and (error := signing_error(cfg)):
+                raise ValueError(error)
             if platform == "apk" and cfg["install"].get("enabled"):
                 adb_path = find_adb(str(cfg["paths"].get("adb") or "").strip())
                 if adb_path:

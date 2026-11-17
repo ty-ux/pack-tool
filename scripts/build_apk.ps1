@@ -243,6 +243,36 @@ foreach ($m in $mustExist) {
     }
 }
 
+# 选了密钥库就必须使用它，配置缺失时在改写工程前停止。
+$keystore = ([string]$cfg.signing.keystorePath).Trim()
+$signingArgs = @()
+if ($keystore) {
+    $alias = ([string]$cfg.signing.keyAlias).Trim()
+    $storePasswordName = ([string]$cfg.signing.storePasswordEnv).Trim()
+    $keyPasswordName = ([string]$cfg.signing.keyPasswordEnv).Trim()
+    if (-not $keyPasswordName) { $keyPasswordName = $storePasswordName }
+    if ($keystore -notmatch '^(?:[A-Za-z]:[\\/]|\\\\)' -or -not (Test-Path -LiteralPath $keystore -PathType Leaf)) {
+        Write-Log "请选择本机存在的签名文件（绝对路径）" "ERR"
+        exit 1
+    }
+    if (-not $alias -or $storePasswordName -notmatch '^[A-Za-z_][A-Za-z0-9_]*$' -or $keyPasswordName -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') {
+        Write-Log "请填写密钥别名和有效的签名密码环境变量名" "ERR"
+        exit 1
+    }
+    $storePassword = [Environment]::GetEnvironmentVariable($storePasswordName)
+    $keyPassword = [Environment]::GetEnvironmentVariable($keyPasswordName)
+    if (-not $storePassword -or -not $keyPassword) {
+        Write-Log "请设置签名密码环境变量：$storePasswordName、$keyPasswordName" "ERR"
+        exit 1
+    }
+    $signingScript = Join-Path $PSScriptRoot "android-signing.init.gradle"
+    if (-not (Test-Path -LiteralPath $signingScript -PathType Leaf)) {
+        Write-Log "找不到 APK 签名脚本：$signingScript" "ERR"
+        exit 1
+    }
+    $signingArgs = @("--init-script", $signingScript, "--no-configuration-cache")
+}
+
 # 可选: 自定义图标（步骤3 写入 res\drawable*\icon.png）
 $iconPath = ""
 $iconConfigured = [string]$cfg.app.icon
@@ -519,19 +549,31 @@ $gradleLog = Join-Path $PSScriptRoot "..\logs\gradle.log"
 $oldEAP = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
 $gradleLines = New-Object System.Collections.Generic.List[string]
+if ($keystore) {
+    # 密码通过进程环境传给 Gradle，避免出现在命令行、运行配置或日志里。
+    $env:PACK_TOOL_SIGNING_FILE = $keystore
+    $env:PACK_TOOL_SIGNING_ALIAS = $alias
+    $env:PACK_TOOL_SIGNING_STORE_PASSWORD = $storePassword
+    $env:PACK_TOOL_SIGNING_KEY_PASSWORD = $keyPassword
+    $env:PACK_TOOL_SIGNING_BUILD_TYPE = $buildType
+    Write-Log "使用当前应用配置的 Android 签名" "INFO"
+}
 Write-Log "--- Gradle 输出（实时） ---" "STEP"
 Push-Location $gradleDir
 try {
     $gradleTask = ":simpleDemo:assemble$($buildType.Substring(0,1).ToUpper())$($buildType.Substring(1))"
-    # cmd 内部的 2>&1 在 cmd 层合并 stderr，PowerShell 只见纯文本行，逐行实时转发
-    & cmd.exe /c "`"$gradleWrapper`" $gradleTask --rerun-tasks --no-daemon 2>&1" | ForEach-Object {
-        $gradleLines.Add($_.ToString())
-        Write-Host $_.ToString()
+    & $gradleWrapper $gradleTask --rerun-tasks --no-daemon @signingArgs 2>&1 | ForEach-Object {
+        $line = if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { $_.ToString() }
+        $gradleLines.Add($line)
+        Write-Host $line
     }
     $gradleExitCode = $LASTEXITCODE
 } finally {
     Pop-Location
     $ErrorActionPreference = $oldEAP
+    if ($keystore) {
+        Remove-Item Env:PACK_TOOL_SIGNING_STORE_PASSWORD, Env:PACK_TOOL_SIGNING_KEY_PASSWORD
+    }
 }
 $gradleOut = $gradleLines -join "`r`n"
 $gradleOut | Set-Content $gradleLog -Encoding UTF8

@@ -4,6 +4,8 @@ import { FolderOpenOutlined } from '@ant-design/icons'
 import { browse } from '../api'
 
 interface Props {
+  id?: string
+  'aria-describedby'?: string
   value: string
   onChange: (value: string) => void
   kind: 'dir' | 'file'
@@ -18,6 +20,8 @@ interface Props {
 
 /** 路径输入 + "浏览..."（调后端弹系统选择框回填绝对路径） */
 export function BrowseInput({
+  id,
+  'aria-describedby': describedBy,
   value,
   onChange,
   kind,
@@ -49,6 +53,8 @@ export function BrowseInput({
   return (
     <Space.Compact style={{ width: '100%', display: 'flex' }}>
       <Input
+        id={id}
+        aria-describedby={describedBy}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
