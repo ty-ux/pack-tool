@@ -15,6 +15,7 @@ import type {
   PackageUploadPayload,
   Permission,
   PreflightPayload,
+  ProjectType,
 } from './types'
 
 class ApiError extends Error {
@@ -59,7 +60,8 @@ export const api = {
 export const saveConfig = (config: AppConfig) =>
   api.post<{ ok: boolean; config: AppConfig }>('/api/config', { config })
 export const getApps = () => api.get<AppsPayload>('/api/apps')
-export const createApp = (name: string) => api.post<AppsPayload>('/api/apps', { name })
+export const createApp = (name: string, projectType: ProjectType) =>
+  api.post<AppsPayload>('/api/apps', { name, projectType })
 export const activateApp = (id: string) => api.post<AppsPayload>('/api/apps/activate', { id })
 export const deleteApp = (id: string) =>
   request<AppsPayload>(`/api/apps/${encodeURIComponent(id)}`, { method: 'DELETE' })
@@ -74,7 +76,9 @@ export const uploadPackage = (form: FormData) =>
 export const deletePackage = (id: string) =>
   request<PackageDeletePayload>(`/api/packages/${encodeURIComponent(id)}`, { method: 'DELETE' })
 export const getStatus = () => api.get<BuildStatus>('/api/status')
-export const getPreflight = () => api.get<PreflightPayload>('/api/preflight')
+export const getPreflight = (config?: AppConfig) => config
+  ? api.post<PreflightPayload>('/api/preflight', { config })
+  : api.get<PreflightPayload>('/api/preflight')
 export const getLogs = () => api.get<LogPayload>('/api/logs')
 export const getDevices = () => api.get<DevicesPayload>('/api/devices')
 export const adbRestart = () => api.post<DevicesPayload & AckPayload>('/api/adb/restart')

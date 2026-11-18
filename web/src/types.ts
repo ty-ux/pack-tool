@@ -1,5 +1,13 @@
+export type ProjectType = 'uniapp' | 'android' | 'flutter'
+export type BuildPlatform = 'apk' | 'aab' | 'web' | 'wgt'
+
 /** 与后端 DEFAULT_CONFIG 结构一一对应 */
 export interface AppConfig {
+  projectType: ProjectType
+  projectBuild: {
+    gradleModule: string
+    flavor: string
+  }
   app: {
     name: string
     icon: string
@@ -19,7 +27,7 @@ export interface AppConfig {
   }
   build: {
     buildType: 'debug' | 'release'
-    platform: 'apk' | 'web' | 'wgt'
+    platform: BuildPlatform
     webType: 'pc' | 'h5'
   }
   web: {
@@ -28,6 +36,7 @@ export interface AppConfig {
     ssr: boolean
   }
   paths: {
+    flutterCli: string
     hbuilderxCli: string
     projectDir: string
     integrateDir: string
@@ -49,6 +58,7 @@ export interface AppProfile {
   name: string
   appid: string
   packageName: string
+  projectType: ProjectType
   updatedAt: string
 }
 
@@ -152,7 +162,7 @@ export type BrowsePayload =
   | { ok: false; cancelled?: boolean; path?: string; error?: string }
 
 /** 打包目标（platform + webType 组合） */
-export type BuildTarget = 'apk' | 'web-pc' | 'web-h5' | 'wgt'
+export type BuildTarget = 'apk' | 'aab' | 'web-pc' | 'web-h5' | 'wgt'
 
 /** 构建历史记录 */
 export interface BuildRecord {
@@ -160,7 +170,7 @@ export interface BuildRecord {
   started_at: string
   finished_at: string | null
   duration_ms: number | null
-  platform: 'apk' | 'web' | 'wgt'
+  platform: BuildPlatform
   web_type: 'pc' | 'h5'
   build_type: 'debug' | 'release'
   target_desc: string

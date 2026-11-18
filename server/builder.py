@@ -1,6 +1,5 @@
 """构建编排：线程安全的 BuildManager，支持真实取消（taskkill 进程树）与历史落库"""
 import datetime
-import json
 import os
 import re
 import subprocess
@@ -11,6 +10,7 @@ from .adb import find_adb
 from . import history as history_mod
 from . import packages as packages_mod
 from .paths import BUILD_LOG, LOGS_DIR, SCRIPTS_DIR, fspath
+from .project_builds import PROJECT_LABELS, ProjectBuild, prepare_project_build
 from .signing import signing_error
 
 CREATE_NO_WINDOW = 0x08000000
@@ -57,7 +57,12 @@ class BuildManager:
             self._idle.clear()
 
         try:
-            if platform == "web":
+            cfg = config_mod.load_config()
+            plan = None
+            if cfg["projectType"] in PROJECT_LABELS:
+                plan = prepare_project_build(cfg, platform, build_type)
+                cmd, target_desc = plan.command, plan.description
+            elif platform == "web":
                 script = SCRIPTS_DIR / "build_web.ps1"
                 if not script.exists():
                     raise FileNotFoundError(f"找不到发行脚本: {script}")
@@ -85,28 +90,25 @@ class BuildManager:
                 ]
                 target_desc = _TARGET_LABELS[("apk", build_type)]
 
-            # 写入运行配置（ps1 通过 -Config 读取）
-            cfg = config_mod.load_config()
-            app_id = str(cfg["app"].get("appid") or "").strip()
-            if platform in ("apk", "wgt") and not re.fullmatch(r"[A-Za-z0-9_-]+", app_id):
-                raise ValueError("请填写 manifest.json 中的 AppID，格式为字母、数字、下划线或连字符")
-            cfg["app"]["appid"] = app_id
-            if platform == "apk" and (error := signing_error(cfg)):
-                raise ValueError(error)
-            if platform == "apk" and cfg["install"].get("enabled"):
-                adb_path = find_adb(str(cfg["paths"].get("adb") or "").strip())
-                if adb_path:
-                    cfg["paths"]["adb"] = adb_path
             cfg["build"]["platform"] = platform
             cfg["build"]["webType"] = web_type
             cfg["build"]["buildType"] = build_type
-            run_cfg_path = config_mod.write_run_config(cfg)
-
-            cmd.append(fspath(run_cfg_path))
-            if platform == "web":
-                cmd += ["-WebType", web_type]
-            elif platform != "wgt":
-                cmd += ["-BuildType", build_type]
+            if plan is None:
+                app_id = str(cfg["app"].get("appid") or "").strip()
+                if platform in ("apk", "wgt") and not re.fullmatch(r"[A-Za-z0-9_-]+", app_id):
+                    raise ValueError("请填写 manifest.json 中的 AppID，格式为字母、数字、下划线或连字符")
+                cfg["app"]["appid"] = app_id
+                if platform == "apk" and (error := signing_error(cfg)):
+                    raise ValueError(error)
+                if platform == "apk" and cfg["install"].get("enabled"):
+                    adb_path = find_adb(str(cfg["paths"].get("adb") or "").strip())
+                    if adb_path:
+                        cfg["paths"]["adb"] = adb_path
+                cmd.append(fspath(config_mod.write_run_config(cfg)))
+                if platform == "web":
+                    cmd += ["-WebType", web_type]
+                elif platform == "apk":
+                    cmd += ["-BuildType", build_type]
 
             # 清空旧日志并写头行
             LOGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -115,7 +117,7 @@ class BuildManager:
                 f.write(f"[INFO] {ts} 启动打包任务: {target_desc}\n")
 
             # APK 打包前先同步依赖包（结果写入 build.log，步骤 0 由前端从日志解析展示）
-            if platform == "apk":
+            if platform == "apk" and plan is None:
                 self._sync_dependencies(ts)
 
             with self._lock:
@@ -133,7 +135,7 @@ class BuildManager:
                     },
                     cfg,
                 )
-            threading.Thread(target=self._worker, args=(cmd,), daemon=True).start()
+            threading.Thread(target=self._worker, args=(cmd, plan), daemon=True).start()
             return True, f"打包任务已启动 ({target_desc})"
         except Exception as e:
             with self._lock:
@@ -166,17 +168,24 @@ class BuildManager:
             raise RuntimeError(f"依赖包同步失败（{summary['error']} 个包出错），已中止打包: {detail}")
 
     # ---------- 工作线程 ----------
-    def _worker(self, cmd: list[str]) -> None:
+    def _worker(self, cmd: list[str], plan: ProjectBuild | None) -> None:
         build_id = None
+        stage = "0|project|构建项目"
         try:
             # 'a' 追加：头行已在 start 写好，child 通过继承句柄继续写
             with open(BUILD_LOG, "a", encoding="utf-8") as f:
+                if plan:
+                    f.write(f"[STEP] {stage}|running\n")
+                    f.write(f"[INFO] {plan.executable} {' '.join(plan.args)}\n")
+                    f.flush()
                 with self._lock:
                     build_id = self._current_build_id
                     if not self._cancel:
                         self._proc = subprocess.Popen(
                             cmd, stdout=f, stderr=subprocess.STDOUT,
-                            creationflags=CREATE_NO_WINDOW,
+                            creationflags=CREATE_NO_WINDOW if os.name == "nt" else 0,
+                            cwd=plan.project if plan else None,
+                            env=plan.env if plan else None,
                         )
                     proc = self._proc
                 if proc:
@@ -186,10 +195,23 @@ class BuildManager:
             if cancelled:
                 with open(BUILD_LOG, "a", encoding="utf-8") as f:
                     f.write("\n[WARN] 构建已被用户停止\nBUILD-CANCELLED\n")
+            elif plan:
+                if proc.returncode:
+                    raise RuntimeError(f"构建命令退出码：{proc.returncode}")
+                with open(BUILD_LOG, "a", encoding="utf-8") as f:
+                    f.write(f"\n[STEP] {stage}|ok\n")
+                    stage = "1|artifact|收集产物"
+                    f.write(f"[STEP] {stage}|running\n")
+                    f.flush()
+                    artifact = plan.collect()
+                    f.write(f"[STEP] {stage}|ok\n[OK] 构建产物: {artifact}\nBUILD-OK\n")
             self._settle_history(build_id)
         except Exception as e:
             with open(BUILD_LOG, "a", encoding="utf-8") as f:
-                f.write(f"\n[ERR] 构建执行异常: {e}\nBUILD-CANCELLED\n")
+                if plan:
+                    f.write(f"\n[STEP] {stage}|fail\n[ERR] 构建执行异常: {e}\nBUILD-FAILED\n")
+                else:
+                    f.write(f"\n[ERR] 构建执行异常: {e}\nBUILD-CANCELLED\n")
             self._settle_history(build_id)
         finally:
             with self._lock:

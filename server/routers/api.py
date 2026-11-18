@@ -1,7 +1,7 @@
 """API 路由：与旧版接口契约一致，新增 build/cancel 与 browse"""
 import os
 import subprocess
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -16,6 +16,7 @@ from .. import packages as packages_mod
 from .. import preflight as preflight_mod
 from ..builder import build_manager
 from ..paths import BUILD_LOG
+from ..project_builds import ANDROID_FORMATS, PROJECT_LABELS
 
 router = APIRouter(prefix="/api")
 CREATE_NO_WINDOW = 0x08000000
@@ -28,6 +29,7 @@ class SaveConfigBody(BaseModel):
 
 class CreateAppBody(BaseModel):
     name: Optional[str] = ""
+    projectType: Literal["uniapp", "android", "flutter"] | None = None
 
 
 class ActivateAppBody(BaseModel):
@@ -94,7 +96,7 @@ def get_apps():
 
 @router.post("/apps")
 def post_app(body: CreateAppBody):
-    apps_mod.create_app(body.name or "")
+    apps_mod.create_app(body.name or "", body.projectType)
     return _apps_payload()
 
 
@@ -272,6 +274,11 @@ def preflight():
     return preflight_mod.run_preflight()
 
 
+@router.post("/preflight")
+def preflight_draft(body: SaveConfigBody):
+    return preflight_mod.run_preflight(body.config)
+
+
 @router.get("/logs")
 def get_logs():
     if BUILD_LOG.exists():
@@ -288,11 +295,12 @@ def get_logs():
 def start_build(body: BuildBody):
     cfg = config_mod.load_config()
 
-    platform = (body.platform or "").strip().lower()
-    if platform not in ("apk", "web", "wgt"):
-        platform = (cfg.get("build", {}).get("platform") or "apk") or "apk"
-    if platform not in ("apk", "web", "wgt"):
-        platform = "apk"
+    formats = ANDROID_FORMATS if cfg["projectType"] in PROJECT_LABELS else ("apk", "web", "wgt")
+    requested = (body.platform or "").strip().lower()
+    if requested and requested not in formats:
+        raise HTTPException(400, "当前工程类型不支持此构建目标")
+    saved = cfg["build"].get("platform")
+    platform = requested or (saved if saved in formats else "apk")
 
     if platform == "web":
         web_type = (body.webType or "").strip().lower()

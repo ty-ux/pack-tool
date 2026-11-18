@@ -8,8 +8,8 @@ import uuid
 from .config import DEFAULT_CONFIG, deep_merge
 from .paths import ACTIVE_APP_PATH, APPS_DIR, CONFIG_PATH
 
-# 新建应用沿用的机器级路径；projectDir 属于应用本身，不继承
-INHERITED_PATHS = ("hbuilderxCli", "integrateDir", "javaHome", "adb", "outputDir", "webOutputDir")
+# 新建应用沿用的机器级路径。原生 Android 和 Flutter 的输出目录按项目设置。
+INHERITED_PATHS = ("hbuilderxCli", "integrateDir", "javaHome", "adb", "flutterCli")
 
 _ensure_lock = threading.Lock()
 
@@ -122,6 +122,7 @@ def list_apps() -> list[dict]:
             "name": str((cfg.get("app") or {}).get("name") or "未命名应用"),
             "appid": str((cfg.get("app") or {}).get("appid") or ""),
             "packageName": str((cfg.get("android") or {}).get("packageName") or ""),
+            "projectType": cfg["projectType"],
             "updatedAt": app["updatedAt"],
         })
     items.sort(key=lambda x: x["name"])
@@ -141,13 +142,18 @@ def save_active_config(cfg: dict) -> dict:
     return _write_app(app_id, cfg)
 
 
-def create_app(name: str) -> dict:
+def create_app(name: str, project_type: str | None = None) -> dict:
     """新建应用：默认值 + 沿用当前应用的机器级路径/构建目标/安装配置"""
     base = load_active_config()
     cfg = copy.deepcopy(DEFAULT_CONFIG)
-    for key in INHERITED_PATHS:
-        cfg["paths"][key] = (base.get("paths") or {}).get(key, cfg["paths"][key])
-    cfg["build"] = copy.deepcopy(base.get("build") or cfg["build"])
+    cfg["projectType"] = project_type or base["projectType"]
+    inherited_paths = INHERITED_PATHS
+    if cfg["projectType"] == base["projectType"] == "uniapp":
+        inherited_paths += ("outputDir", "webOutputDir")
+    for key in inherited_paths:
+        cfg["paths"][key] = base["paths"][key]
+    if cfg["projectType"] == base["projectType"]:
+        cfg["build"] = copy.deepcopy(base["build"])
     cfg["install"] = copy.deepcopy(base.get("install") or cfg["install"])
     # 应用自身的字段留空，等用户填写
     cfg["app"]["name"] = name.strip() or "新应用"

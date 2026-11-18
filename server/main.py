@@ -20,7 +20,7 @@ def create_app(*, allow_dev_proxy: bool = True) -> FastAPI:
     app = FastAPI(
         title="App 打包控制台",
         version=__version__,
-        description="uni-app + HBuilderX 本地打包/发行服务",
+        description="PackTool 本地打包服务",
         docs_url=None, redoc_url=None,
     )
 

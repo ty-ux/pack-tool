@@ -15,6 +15,7 @@ import { LogConsole } from '../components/LogConsole'
 import { StatCards } from '../components/StatCards'
 import { PipelineSteps } from '../components/PipelineSteps'
 import { Field, FieldRow } from '../components/Field'
+import { PROJECT_TYPES } from '../components/ProjectTypeField'
 import { skeletonFor } from '../utils/pipeline'
 
 interface Props {
@@ -61,18 +62,18 @@ function CheckList({ checks }: { checks: PreflightCheck[] }) {
 }
 
 export function BuildPage({ build }: Props) {
-  const { config, permissions, setField } = useConfig()
+  const { config, activeId, permissions, setField } = useConfig()
   const { message } = App.useApp()
   const [preflight, setPreflight] = useState<PreflightPayload | null>(null)
   const [preflightLoading, setPreflightLoading] = useState(false)
   const [preflightError, setPreflightError] = useState('')
   const [showAllChecks, setShowAllChecks] = useState(false)
 
-  const runPreflight = useCallback(async () => {
+  const runPreflight = useCallback(async (draft?: typeof config) => {
     setPreflightLoading(true)
     setPreflightError('')
     try {
-      const res = await getPreflight()
+      const res = await getPreflight(draft ?? undefined)
       setPreflight(res)
     } catch (e) {
       setPreflightError(e instanceof Error ? e.message : '检查失败')
@@ -82,26 +83,30 @@ export function BuildPage({ build }: Props) {
   }, [])
 
   useEffect(() => {
-    if (config?.build.platform === 'apk') runPreflight()
-  }, [runPreflight, config?.build.platform])
+    setPreflight(null)
+    if (config?.projectType === 'uniapp' && config.build.platform === 'apk') runPreflight()
+  }, [runPreflight, activeId, config?.projectType, config?.build.platform])
 
   if (!config) return null
 
   const platform = config.build.platform
   const webType = config.build.webType
-  const target: BuildTarget = platform === 'apk' ? 'apk' : platform === 'wgt' ? 'wgt' : `web-${webType}`
+  const uniapp = config.projectType === 'uniapp'
+  const target: BuildTarget = platform === 'web' ? `web-${webType}` : platform
 
-  const targetOptions = [
+  const targetOptions = uniapp ? [
     { label: 'Android APK', value: 'apk' },
     { label: '网站-PC Web', value: 'web-pc' },
     { label: '手机H5', value: 'web-h5' },
     { label: 'WGT 热更新包', value: 'wgt' },
-  ]
+  ] : [{ label: 'Android APK', value: 'apk' }, { label: 'Android App Bundle (AAB)', value: 'aab' }]
 
   const onTarget = (t: BuildTarget) => {
-    setField(['build', 'platform'], t === 'apk' ? 'apk' : t === 'wgt' ? 'wgt' : 'web')
-    if (t !== 'apk' && t !== 'wgt') {
+    if (t === 'web-pc' || t === 'web-h5') {
+      setField(['build', 'platform'], 'web')
       setField(['build', 'webType'], t === 'web-pc' ? 'pc' : 'h5')
+    } else {
+      setField(['build', 'platform'], t)
     }
   }
 
@@ -125,6 +130,10 @@ export function BuildPage({ build }: Props) {
       }
     } else {
       dir = config.paths.outputDir?.trim() ?? ''
+      if (!dir && !uniapp && build.phase === 'ok') {
+        const marker = '[OK] 构建产物: '
+        dir = build.lines.find((line) => line.text.startsWith(marker))?.text.slice(marker.length) ?? ''
+      }
     }
     if (!dir) {
       message.info('请先填写输出目录')
@@ -150,7 +159,7 @@ export function BuildPage({ build }: Props) {
   return (
     <div className="stack">
       <StatCards
-        items={[
+        items={uniapp ? [
           { label: 'App 名称', value: config.app.name || '—' },
           { label: '版本', value: config.app.versionName || '—', accent: 'cobalt', mono: true },
           {
@@ -171,18 +180,26 @@ export function BuildPage({ build }: Props) {
             value: platform === 'apk' ? String(permCount) : '—',
             accent: 'success',
           },
+        ] : [
+          { label: 'App 名称', value: config.app.name || '—' },
+          { label: '工程类型', value: PROJECT_TYPES[config.projectType] },
+          { label: '打包目标', value: platform.toUpperCase(), accent: 'cobalt' },
         ]}
       />
 
       <Card title="打包目标">
         <Segmented
           block
+          aria-label="打包目标"
           options={targetOptions}
           value={target}
           onChange={(v) => onTarget(v as BuildTarget)}
+          disabled={build.running}
         />
         <div className="field-hint" style={{ marginTop: 12 }}>
-          {platform === 'apk'
+          {!uniapp
+            ? platform === 'aab' ? 'AAB 用于应用商店分发。' : 'APK 可以直接安装在 Android 设备上。'
+            : platform === 'apk'
             ? 'HBuilderX 编译 appResource + Gradle 离线打包，产物为 .apk'
             : platform === 'wgt'
               ? 'HBuilderX 制作应用资源升级包 (publish app --type wgt)，产物为 .wgt，可配合升级中心做热更新'
@@ -190,12 +207,12 @@ export function BuildPage({ build }: Props) {
         </div>
       </Card>
 
-      {platform === 'apk' && (
+      {(!uniapp || platform === 'apk') && (
         <Card
           title="构建前检查"
           extra={
-            <Button size="small" icon={<ReloadOutlined />} loading={preflightLoading} onClick={runPreflight}>
-              重新检查
+            <Button size="small" icon={<ReloadOutlined />} loading={preflightLoading} onClick={() => runPreflight(config)}>
+              {preflight ? '重新检查' : '检查'}
             </Button>
           }
         >
@@ -208,7 +225,7 @@ export function BuildPage({ build }: Props) {
               message="检查失败"
               description={preflightError}
               action={
-                <Button size="small" onClick={runPreflight}>
+                <Button size="small" onClick={() => runPreflight(config)}>
                   重试
                 </Button>
               }
@@ -227,7 +244,7 @@ export function BuildPage({ build }: Props) {
                 <CheckList checks={visibleChecks} />
               ) : (
                 <div className="check-pass">
-                  环境、Android 工程与权限配置均通过检查，可以开始打包。
+                  {uniapp ? '环境、Android 工程与权限配置均通过检查，可以开始打包。' : '项目和构建命令通过检查。'}
                 </div>
               )}
             </>
@@ -235,22 +252,48 @@ export function BuildPage({ build }: Props) {
         </Card>
       )}
 
-      {platform === 'apk' ? (
+      {(!uniapp || platform === 'apk') ? (
         <Card title="构建类型">
           <Radio.Group
+            aria-label="构建模式"
             value={config.build.buildType}
             onChange={(e) => setField(['build', 'buildType'], e.target.value)}
             optionType="button"
             buttonStyle="solid"
+            disabled={build.running}
             options={[
               { label: 'Debug', value: 'debug' },
               { label: 'Release', value: 'release' },
             ]}
           />
+          {!uniapp && (
+            <div style={{ marginTop: 16 }}>
+              <FieldRow>
+                {config.projectType === 'android' && (
+                  <Field label="Gradle 模块" hint="默认 app。嵌套模块使用冒号分隔，如 feature:app">
+                    <Input
+                      value={config.projectBuild.gradleModule}
+                      onChange={(e) => setField(['projectBuild', 'gradleModule'], e.target.value)}
+                      spellCheck={false}
+                      disabled={build.running}
+                    />
+                  </Field>
+                )}
+                <Field label="Flavor" hint="可选。填写项目已配置的 Flavor，例如 demo">
+                  <Input
+                    value={config.projectBuild.flavor}
+                    onChange={(e) => setField(['projectBuild', 'flavor'], e.target.value)}
+                    spellCheck={false}
+                    disabled={build.running}
+                  />
+                </Field>
+              </FieldRow>
+            </div>
+          )}
           <div className="field-hint" style={{ marginTop: 12 }}>
             {config.build.buildType === 'debug'
               ? 'Debug 便于调试，体积较大，适合开发联调。'
-              : 'Release 为发布包（使用 keystore 签名），适合交付上线。'}
+              : uniapp ? 'Release 为发布包（使用 keystore 签名），适合交付上线。' : 'Release 沿用项目的发行签名配置。'}
           </div>
         </Card>
       ) : platform === 'wgt' ? (
@@ -293,7 +336,7 @@ export function BuildPage({ build }: Props) {
 
       <Card title="构建流水线">
         <PipelineSteps
-          steps={!build.running && build.lines.length === 0 ? skeletonFor(platform) : build.steps}
+          steps={!build.running && build.lines.length === 0 ? skeletonFor(platform, config.projectType) : build.steps}
         />
       </Card>
 
@@ -303,7 +346,7 @@ export function BuildPage({ build }: Props) {
           <div className="build-action-desc">
             {build.running
               ? '日志会实时输出到下方终端，可随时停止。'
-              : `${resultText} · 构建前会自动保存当前配置并同步依赖包。`}
+              : `${resultText} · 构建前会自动保存当前配置。`}
           </div>
         </div>
         <Button
@@ -337,7 +380,7 @@ export function BuildPage({ build }: Props) {
       />
 
       <p className="build-note">
-        {build.running
+        {build.running && uniapp
           ? '取消仅结束本工具发起的构建进程；HBuilderX 主程序内的编译动作可能仍在继续（已有产物校验兜底）。'
           : '构建日志实时写入 logs\\build.log，页面刷新可继续查看；详细历史请见「构建历史」页签。'}
       </p>

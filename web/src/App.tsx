@@ -32,7 +32,7 @@ const PAGES: Record<string, PageMeta> = {
   },
   path: {
     title: '路径配置',
-    desc: '指定 HBuilderX、Android 离线工程与 JDK 的位置，路径错误会直接导致构建失败。',
+    desc: '选择项目目录，配置该工程所需的工具和产物位置。',
   },
   install: {
     title: '安装配置',
@@ -52,7 +52,9 @@ export function AppRoot() {
   const { message } = AntApp.useApp()
   const { config, dirty, loading, error, save, reload } = useConfig()
   const build = useBuild()
-  const [tab, setTab] = useState('app')
+  const [selectedTab, setTab] = useState('app')
+  const isUniApp = !config || config.projectType === 'uniapp'
+  const tab = !isUniApp && ['perm', 'packages', 'install'].includes(selectedTab) ? 'app' : selectedTab
   const page = PAGES[tab] ?? PAGES.app
 
   const handleSave = async () => {
@@ -107,7 +109,7 @@ export function AppRoot() {
           <header className="app-header">
             <div>
               <h1 className="page-title">{page.title}</h1>
-              <p className="page-desc">{page.desc}</p>
+              <p className="page-desc">{tab === 'app' && !isUniApp ? '选择工程类型和应用显示名称。' : page.desc}</p>
             </div>
             <span className="spacer" />
             <span className="header-status" role="status" aria-live="polite">

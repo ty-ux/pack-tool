@@ -1,37 +1,44 @@
-# uni-app 打包控制台
+# PackTool
 
-> uni-app + HBuilderX 一键打包工具，提供 Windows 桌面版和源码运行方式，支持 **Android APK 离线打包**、**Web/H5 发行** 与 **WGT 热更新包**
+> Windows 本地打包控制台。支持原生 Android 和 Flutter 的 APK、AAB 构建，以及 uni-app 的离线 APK、Web/H5 和 WGT。
 >
 > 后端：Python FastAPI（本地服务） · 前端：React 18 + TypeScript + Ant Design（Vite 构建）
 
-工具在 Windows 本机运行。准备 HBuilderX 和自己的 uni-app 项目。Android APK 额外需要 JDK、Android SDK 和 Android 离线工程。
+选择工程类型后，PackTool 调用该项目的构建工具，并记录日志和产物路径。
+
+| 工程类型 | 产物 | 本机依赖 |
+| --- | --- | --- |
+| 原生 Android | APK、AAB | 工程自带的 Gradle Wrapper、兼容的 JDK 和 Android SDK |
+| Flutter | APK、AAB | Flutter SDK、Android SDK 和 Android SDK Command-line Tools |
+| uni-app | APK、Web/H5、WGT | HBuilderX。离线 APK 额外需要 Android 离线工程、JDK 和 Android SDK |
 
 ## 功能
 
 - **图形界面**：在独立桌面窗口或浏览器中可视化配置
-- **可配置项**：
+- **原生 Android 与 Flutter**：选择 Debug 或 Release 和可选的 Flavor，沿用工程的包名、版本和签名配置。原生 Android 可以指定 Gradle 模块。
+- **uni-app 配置**：
   - App 名称、图标、包名、版本号
   - 权限（勾选：相机/扫码/联网/存储/安装APK 等 17 项）
   - 路径（HBuilderX CLI、uni-app 项目目录、离线工程目录、JDK、adb、输出目录、Web 输出目录）——**支持"浏览…"按钮弹系统选择框**
   - Android 签名（每个应用可选择自己的签名文件和密钥别名）
-- **打包目标**（一键切换）：
+- **uni-app 打包目标**：
   - `Android APK`：HBuilderX 编译 appResource → 同步资源 → Gradle 离线打包
   - `网站-PC Web` / `手机H5`：利用 HBuilderX 发行能力（`cli publish web`）生成 Web 产物
   - `WGT 热更新包`：利用 HBuilderX 制作应用资源升级包（`cli publish app --type wgt`），可配合升级中心做 App 热更新
 - **Web 发行配置**：网站标题(webTitle)、网站域名(webDomain)、SSR（Vue3）
-- **可选安装**：APK 打包后自动安装到指定设备/模拟器（可勾选，也可不装）
-- **构建流水线展示**：编译 → 同步 → 配置 → Gradle 四步实时状态条（Web / WGT 为两步），一目了然进行到哪一步
-- **构建前检查**：APK 打包前只读扫描应用信息、路径、Android 工程、签名与权限，提前提示文件缺失、图标路径失效、targetSdk 低于 35、签名口令明文、allowBackup 开启等风险（`GET /api/preflight`）
-- **多应用配置**：每个应用独立一套打包配置，侧边栏「当前应用」随时切换；新建应用沿用当前应用的 HBuilderX/离线工程/JDK/adb/输出目录与构建目标，AppID、包名、项目目录留空重填；切换前自动保存，切回去配置不会丢
+- **可选安装**：uni-app 的 APK 打包后可自动安装到指定设备或模拟器。
+- **构建流水线**：实时显示当前阶段和构建日志。
+- **构建前检查**：检查项目目录和构建命令。uni-app 还会扫描应用配置、签名和权限。
+- **多应用配置**：每个应用独立保存工程类型、路径和构建选项，可以从侧边栏切换。
 - **构建历史**：每次构建自动落库（SQLite），记录时间/目标/结果/耗时/产物路径/完整配置快照/归档日志，可随时回看；默认保留最近 100 条，可手动清空
 - **真实"停止构建"**：一键杀停整个构建进程树（powershell → gradle → java），不残留后台任务
-- **产物目录**：未指定输出目录时，APK 保留在离线工程中，WGT 写到 `output/`，Web/H5 写到 `output/build/`
+- **产物目录**：原生 Android 和 Flutter 默认保留在项目构建目录，也可以指定导出目录。uni-app 默认将 APK 保留在离线工程，WGT 生成在 `output/`，Web/H5 生成在 `output/build/`。
 - **记住配置**：每个应用的配置各存一份（`config\apps`），下次打开自动恢复并停留在上次使用的应用
 
 ## 目录结构
 
 ```
-uniapp-pack-tool\
+pack-tool\
 ├── start.bat             # 启动服务并打开浏览器，按需安装后端依赖
 ├── build-frontend.bat    # 首次使用或前端更新后执行（npm ci + build → web\dist）
 ├── requirements.txt      # 后端依赖（fastapi、uvicorn）
@@ -69,9 +76,9 @@ uniapp-pack-tool\
 
 ### Windows x64 免安装版（推荐）
 
-1. 从 [GitHub Releases](https://github.com/ty-ux/uniapp-pack-tool/releases) 下载 `PackTool-win-x64.zip`。
+1. 从 [GitHub Releases](https://github.com/ty-ux/pack-tool/releases) 下载 `PackTool-win-x64.zip`。
 2. 解压整个 ZIP，双击文件夹里的 `PackTool.exe`。发行包已包含 Electron 和 Python 运行环境，可以直接启动。
-3. 在「路径配置」填写本机 HBuilderX、uni-app 项目及所用工具的路径。
+3. 新建应用，选择工程类型，在「路径配置」填写项目和工具路径。
 
 应用配置、依赖包、日志、历史数据库和默认 Web/WGT 产物保存在 `%APPDATA%\PackTool\workspace`。更新时解压新版即可继续使用这些数据。依赖包放入该目录下的 `packages`，或在「依赖包」页上传。如果以前从源码运行，可以在桌面版退出时将原目录的 `config` 和 `packages` 复制到桌面版的数据目录。
 
@@ -114,7 +121,16 @@ npm --prefix desktop run test:windows
 
 ZIP 生成在 `desktop/out/PackTool-win-x64.zip`。GitHub Actions 在 PR 上构建并验证 ZIP。发布新版时，先在功能分支更新 `desktop/package.json` 和锁文件的版本，通过 PR 合并后，将对应的 `vX.Y.Z` 标签推送到 GitHub。构建通过后，工作流会把 ZIP 发布到 Releases。
 
-### 界面操作
+### 打包原生 Android 或 Flutter
+
+1. 新建应用时选择「原生 Android」或「Flutter」。已有应用可以在「应用信息」修改类型。
+2. 在「路径配置」选择项目根目录。原生 Android 目录应包含 `gradlew.bat`，Flutter 目录应包含 `pubspec.yaml` 和 `android/`。Flutter CLI 可从 `PATH` 查找，也可选择 `bin/flutter.bat`。
+3. 在「打包构建」选择 APK 或 AAB，以及 Debug 或 Release。原生 Android 的模块默认是 `app`，可以改成实际模块名。项目配置了 Flavor 时，填写相应名称。
+4. 运行构建前检查，再点「一键打包」。设置了输出目录时，PackTool 会把产物复制过去。留空时保存在工程的默认输出目录，可以从构建历史定位。
+
+Release 使用项目自己的签名配置。在 Android 工程的 Gradle 配置中绑定生产密钥。Flutter 项目的 Android 签名配置在 `android/` 下。密钥文件和口令保存在本机。Flutter 的 Release AAB 构建还会调用 Android SDK Command-line Tools 中的 `apkanalyzer` 检查产物。 [Android 命令行构建](https://developer.android.com/build/building-cmdline?hl=zh-cn) · [Flutter Android 发行](https://docs.flutter.dev/deployment/android)
+
+### 打包 uni-app
 1. 在 **打包构建** 页选择目标：Android APK、网站-PC Web、手机 H5 或 WGT 热更新包。
 2. **应用信息**填写应用名称、版本和项目 `manifest.json` 中的 AppID。APK 还需填写 Android 包名。
 3. **路径配置**选择 HBuilderX 安装目录下的 `cli.exe`、含 `manifest.json` 的项目目录。启动 HBuilderX，再保存配置。
@@ -130,7 +146,7 @@ ZIP 生成在 `desktop/out/PackTool-win-x64.zip`。GitHub Actions 在 PR 上构�
 
 APK 构建会替换离线工程中的应用资源，并修改 Manifest、Gradle 配置和应用图标。同步依赖时，取消勾选的托管依赖会从 `simpleDemo/libs` 移除。APK 和 WGT 构建还会把界面填写的版本号写回 uni-app 项目的 `manifest.json`。首次试用建议使用工程副本。
 
-### 为每个应用选择 Android 签名
+### 为 uni-app 应用选择 Android 签名
 
 1. 切换到要打包的应用，打开「应用信息 → Android 签名」，选择本机的 `.jks` 或 `.keystore` 文件并填写密钥别名（Key Alias）。
 2. 填写**环境变量名**，例如 `DEMO_STORE_PASSWORD`。如果密钥密码和密钥库密码不同，再填写单独的变量名，例如 `DEMO_KEY_PASSWORD`。每个应用可以使用不同的变量名。
@@ -222,7 +238,7 @@ A: 包名修改后是全新应用，需先卸载旧版。且后端若绑定了�
 A: 点 **选择图标** 选文件，或点 **选择目录** 选按 dpi 组织的目录（例如包含 `drawable-xxhdpi\icon.png`）。构建时会按密度写入离线工程，缺少的密度用目录里分辨率最高的一张补齐。首次覆盖前原图标会备份到 `simpleDemo\.pack-tool\icon-backup\`。未选择图标时沿用离线工程的图标。若桌面图标没变，请确认 `AndroidManifest.xml` 的 `android:icon` 指向 `@drawable/icon`。
 
 **Q: 怎么管理多个 App 的打包配置？**
-A: 侧边栏顶部的「当前应用」可以切换、新建、删除应用。每个应用在 `config\apps\` 下各存一份完整配置；新建应用会沿用 HBuilderX、离线工程、JDK、adb、输出目录和构建目标，AppID / 包名 / 项目目录需要重新填写。切换时当前未保存的改动会自动保存，切回去不会丢。构建历史存的是当时的应用配置快照，与当前选中的应用无关。删除应用会删掉它的配置文件（构建历史保留），最后一个应用不能删。
+A: 侧边栏顶部的「当前应用」可以切换、新建、删除应用。每个应用在 `config/apps/` 下各存一份配置。新建应用会沿用已填写的工具路径。项目目录需要重新选择，原生 Android 和 Flutter 的导出目录也按应用设置。切换应用时会保存当前改动。删除应用时会保留构建历史，至少需要保留一个应用。
 
 **Q: 权限改了不生效？**
 A: 权限写入的是离线工程的 `AndroidManifest.xml`，改后必须重新打包才生效（界面点"一键打包"即可）。

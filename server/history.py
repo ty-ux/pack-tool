@@ -107,6 +107,7 @@ def resolve_status(log_text: str) -> str:
     ok = "BUILD-OK" in tail or "全部完成" in tail
     err = (
         "BUILD FAILED" in tail
+        or "BUILD-FAILED" in tail
         or "Gradle 打包失败" in tail
         or "前端资源编译失败" in tail
         or "Web 发行失败" in tail
@@ -121,7 +122,7 @@ def resolve_artifact(log_text: str) -> str:
     """从日志里解析产物路径（APK 复制行 / Web 产物行）"""
     for line in log_text.splitlines():
         s = line.strip()
-        for marker in ("APK 已复制到:", "Web 发行成功，产物:", "WGT 已复制到:"):
+        for marker in ("构建产物:", "APK 已复制到:", "Web 发行成功，产物:", "WGT 已复制到:"):
             idx = s.find(marker)
             if idx >= 0:
                 return s[idx + len(marker):].strip()
@@ -134,7 +135,7 @@ def list_builds(limit: int = 20, platform: str = "", offset: int = 0) -> list[di
     with _connect() as conn:
         sql = "SELECT * FROM builds"
         params: list = []
-        if platform in ("apk", "web", "wgt"):
+        if platform in ("apk", "aab", "web", "wgt"):
             sql += " WHERE platform = ?"
             params.append(platform)
         sql += " ORDER BY id DESC LIMIT ? OFFSET ?"
