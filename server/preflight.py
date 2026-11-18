@@ -7,6 +7,7 @@ from copy import deepcopy
 from . import adb as adb_mod
 from . import config as config_mod
 from . import packages as packages_mod
+from .local_tools import android_sdk_environment
 from .project_builds import PROJECT_LABELS, prepare_project_build
 from .signing import signing_error
 
@@ -213,8 +214,16 @@ def run_preflight(draft: dict | None = None) -> dict:
     else:
         add("java", "环境与路径", "JDK", "ok", java)
 
+    if cfg["build"].get("platform") == "apk" and paths.get("androidSdk"):
+        try:
+            sdk_env = android_sdk_environment(paths)
+            if sdk_env:
+                add("android-sdk", "环境与路径", "Android SDK", "ok", sdk_env["ANDROID_HOME"])
+        except (ValueError, OSError) as error:
+            add("android-sdk", "环境与路径", "Android SDK", "error", str(error))
+
     if install.get("enabled"):
-        adb = adb_mod.find_adb(str(paths.get("adb") or "").strip())
+        adb = adb_mod.find_adb(str(paths.get("adb") or "").strip(), str(paths.get("androidSdk") or "").strip())
         if not adb:
             add("adb", "环境与路径", "adb", "error", "已启用自动安装，但找不到 adb，请配置 adb 路径")
         elif not install.get("serial"):

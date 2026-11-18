@@ -9,6 +9,7 @@ from . import config as config_mod
 from .adb import find_adb
 from . import history as history_mod
 from . import packages as packages_mod
+from .local_tools import android_sdk_environment
 from .paths import BUILD_LOG, LOGS_DIR, SCRIPTS_DIR, fspath
 from .project_builds import PROJECT_LABELS, ProjectBuild, prepare_project_build
 from .signing import signing_error
@@ -59,9 +60,11 @@ class BuildManager:
         try:
             cfg = config_mod.load_config()
             plan = None
+            env = None
             if cfg["projectType"] in PROJECT_LABELS:
                 plan = prepare_project_build(cfg, platform, build_type)
                 cmd, target_desc = plan.command, plan.description
+                env = plan.env
             elif platform == "web":
                 script = SCRIPTS_DIR / "build_web.ps1"
                 if not script.exists():
@@ -100,6 +103,10 @@ class BuildManager:
                 cfg["app"]["appid"] = app_id
                 if platform == "apk" and (error := signing_error(cfg)):
                     raise ValueError(error)
+                if platform == "apk":
+                    sdk_env = android_sdk_environment(cfg["paths"])
+                    if sdk_env:
+                        env = {**os.environ, **sdk_env}
                 if platform == "apk" and cfg["install"].get("enabled"):
                     adb_path = find_adb(str(cfg["paths"].get("adb") or "").strip())
                     if adb_path:
@@ -135,7 +142,7 @@ class BuildManager:
                     },
                     cfg,
                 )
-            threading.Thread(target=self._worker, args=(cmd, plan), daemon=True).start()
+            threading.Thread(target=self._worker, args=(cmd, plan, env), daemon=True).start()
             return True, f"打包任务已启动 ({target_desc})"
         except Exception as e:
             with self._lock:
@@ -168,7 +175,7 @@ class BuildManager:
             raise RuntimeError(f"依赖包同步失败（{summary['error']} 个包出错），已中止打包: {detail}")
 
     # ---------- 工作线程 ----------
-    def _worker(self, cmd: list[str], plan: ProjectBuild | None) -> None:
+    def _worker(self, cmd: list[str], plan: ProjectBuild | None, env: dict[str, str] | None) -> None:
         build_id = None
         stage = "0|project|构建项目"
         try:
@@ -185,7 +192,7 @@ class BuildManager:
                             cmd, stdout=f, stderr=subprocess.STDOUT,
                             creationflags=CREATE_NO_WINDOW if os.name == "nt" else 0,
                             cwd=plan.working_dir if plan else None,
-                            env=plan.env if plan else None,
+                            env=env,
                         )
                     proc = self._proc
                 if proc:

@@ -110,6 +110,8 @@ DEFAULT_CONFIG = {
         "projectDir": "",
         "integrateDir": "",
         "javaHome": "",
+        "androidSdk": "",
+        "nodeDir": "",
         "adb": "",
         "outputDir": "",
         "webOutputDir": "",

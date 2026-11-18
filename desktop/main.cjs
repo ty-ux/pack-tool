@@ -126,6 +126,15 @@ async function openWindow() {
     '.then(([apps, history]) => apps.ok && history.ok && document.querySelector("#root")?.childElementCount > 0)',
   )
   if (!ready) throw new Error('React, application configuration or build history did not load')
+  const discoveredJdk = await contents.executeJavaScript(`
+    fetch('/api/local-tools').then(response => response.json()).then(result =>
+      result.ok && result.tools.javaHome.find(candidate => candidate.source === 'JAVA_HOME')?.path
+    )
+  `)
+  if (typeof discoveredJdk !== 'string' ||
+      path.normalize(discoveredJdk).toLowerCase() !== path.normalize(process.env.JAVA_HOME).toLowerCase()) {
+    throw new Error('PackTool did not discover the test JDK')
+  }
   const typedApps = await contents.executeJavaScript(`
     (async () => {
       for (const projectType of ['android', 'flutter', 'react-native']) {

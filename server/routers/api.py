@@ -15,6 +15,7 @@ from .. import history as history_mod
 from .. import packages as packages_mod
 from .. import preflight as preflight_mod
 from ..builder import build_manager
+from ..local_tools import discover_tools
 from ..paths import BUILD_LOG
 from ..project_builds import ANDROID_FORMATS, PROJECT_LABELS
 
@@ -77,6 +78,11 @@ def post_config(body: SaveConfigBody):
 @router.get("/permissions")
 def get_permissions():
     return {"ok": True, "permissions": config_mod.PERMISSIONS}
+
+
+@router.get("/local-tools")
+def get_local_tools():
+    return {"ok": True, "tools": discover_tools()}
 
 
 # ---------------- 多应用 ----------------

@@ -5,17 +5,19 @@ import subprocess
 
 CREATE_NO_WINDOW = 0x08000000
 
-def find_adb(adb_path: str = "") -> str | None:
+def find_adb(adb_path: str = "", sdk_path: str | None = None) -> str | None:
     """定位 adb 可执行文件，返回路径或 None"""
     if adb_path and os.path.isfile(adb_path):
         return adb_path
     from .config import load_config
 
-    conf_adb = (load_config().get("paths") or {}).get("adb", "")
+    paths = load_config().get("paths") or {}
+    conf_adb = paths.get("adb", "")
     if conf_adb and os.path.isfile(conf_adb):
         return conf_adb
     local_app_data = os.environ.get("LOCALAPPDATA")
     sdk_dirs = (
+        paths.get("androidSdk") if sdk_path is None else sdk_path,
         os.environ.get("ANDROID_HOME"),
         os.environ.get("ANDROID_SDK_ROOT"),
         os.path.join(local_app_data, "Android", "Sdk") if local_app_data else None,

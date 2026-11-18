@@ -46,6 +46,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     projectDir: '',
     integrateDir: '',
     javaHome: '',
+    androidSdk: '',
+    nodeDir: '',
     adb: '',
     outputDir: '',
     webOutputDir: '',

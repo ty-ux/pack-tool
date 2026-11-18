@@ -18,9 +18,12 @@ try {
   ])
   const application = path.join(unpacked, 'PackTool-win32-x64')
   fs.mkdirSync(userData)
+  const jdk = path.join(testRoot, 'test JDK')
+  fs.mkdirSync(path.join(jdk, 'bin'), { recursive: true })
+  for (const exe of ['java.exe', 'javac.exe']) fs.writeFileSync(path.join(jdk, 'bin', exe), '')
   run(path.join(application, 'PackTool.exe'), ['--smoke-test'], {
     cwd: testRoot,
-    env: { ...process.env, PACK_TOOL_SMOKE_DIR: userData },
+    env: { ...process.env, PACK_TOOL_SMOKE_DIR: userData, JAVA_HOME: jdk },
   })
   const workspace = path.join(userData, 'workspace')
   for (const file of ['config/active_app.json', 'data/build_history.db']) {
