@@ -32,8 +32,8 @@
 
 ```
 uniapp-pack-tool\
-├── 启动打包工具.bat      # 双击启动（自动装依赖 + 开浏览器）
-├── 构建前端.bat          # 首次/前端更新后执行（npm ci + build → web\dist）
+├── start.bat             # 启动服务并打开浏览器，按需安装后端依赖
+├── build-frontend.bat    # 首次使用或前端更新后执行（npm ci + build → web\dist）
 ├── requirements.txt      # 后端依赖（fastapi、uvicorn）
 ├── server\               # 本地后端服务（FastAPI）
 │   ├── main.py           # 应用装配 + 启动入口
@@ -68,8 +68,8 @@ uniapp-pack-tool\
 ## 快速开始
 
 ### 方式一：双击启动（推荐）
-1. 克隆或解压仓库，首次使用双击 `构建前端.bat` 生成 `web\dist`。更新前端源码后再执行一次。
-2. 双击 `启动打包工具.bat`——首次运行会自动 `pip install` 后端依赖，随后起服务并打开浏览器 `http://127.0.0.1:8765/`
+1. 克隆或解压仓库，首次使用双击 `build-frontend.bat` 生成 `web\dist`。更新前端源码后再执行一次。
+2. 双击 `start.bat` 启动服务并打开浏览器 `http://127.0.0.1:8765/`。如果缺少后端依赖，脚本会先安装。
 
 ### 方式二：命令行启动
 在仓库根目录打开 PowerShell。
@@ -178,10 +178,10 @@ python -m server
 ## 常见问题
 
 **Q: 网页打不开？**
-A: 确认已运行 `启动打包工具.bat`（或 `python -m server`），访问 `http://127.0.0.1:8765/`。若提示"端口 8765 已被占用"，说明旧服务还在运行，可先关闭再启动。
+A: 确认已运行 `start.bat`（或 `python -m server`），访问 `http://127.0.0.1:8765/`。若提示"端口 8765 已被占用"，说明旧服务还在运行，可先关闭再启动。
 
 **Q: 打开的是"前端尚未构建"引导页？**
-A: 执行 `构建前端.bat` 生成 `web\dist` 后刷新页面；开发时也可用 `npm run dev` 访问 5173。
+A: 执行 `build-frontend.bat` 生成 `web\dist` 后刷新页面；开发时也可用 `npm run dev` 访问 5173。
 
 **Q: 打包失败怎么办？**
 A: 查看 `logs/compile.log`（编译）和 `logs/gradle.log`（打包）定位问题。常见原因：**HBuilderX 未启动**、路径配置错误、JDK 版本、签名错误。
