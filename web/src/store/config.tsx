@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { AppConfig, AppProfile, AppsPayload, Permission } from '../types'
+import type { AppConfig, AppProfile, AppsPayload, Permission, ProjectType } from '../types'
 import {
   activateApp,
   createApp,
@@ -23,7 +23,7 @@ export interface ConfigStore {
   save: (opts?: { validate?: boolean }) => Promise<SaveResult>
   reload: () => Promise<void>
   switchApp: (id: string) => Promise<SaveResult>
-  addApp: (name: string) => Promise<SaveResult>
+  addApp: (name: string, projectType: ProjectType) => Promise<SaveResult>
   removeApp: (id: string) => Promise<SaveResult>
 }
 
@@ -33,12 +33,15 @@ export interface SaveResult {
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
+  projectType: 'uniapp',
+  projectBuild: { gradleModule: 'app', flavor: '' },
   app: { name: '新应用', icon: '', appid: '', versionName: '1.0.0', versionCode: '1' },
   android: { packageName: '', permissions: [] },
   signing: { keystorePath: '', keyAlias: '', storePasswordEnv: 'PACK_TOOL_KEYSTORE_PASSWORD', keyPasswordEnv: '' },
   build: { buildType: 'debug', platform: 'apk', webType: 'h5' },
   web: { webTitle: '', webDomain: '', ssr: false },
   paths: {
+    flutterCli: '',
     hbuilderxCli: '',
     projectDir: '',
     integrateDir: '',
@@ -165,13 +168,13 @@ export function ConfigStoreProvider({ children }: { children: ReactNode }) {
     }
   }, [activeId, dirty, save, applyPayload])
 
-  const addApp = useCallback(async (name: string): Promise<SaveResult> => {
+  const addApp = useCallback(async (name: string, projectType: ProjectType): Promise<SaveResult> => {
     if (dirty) {
       const saved = await save({ validate: false })
       if (!saved.ok) return saved
     }
     try {
-      applyPayload(await createApp(name))
+      applyPayload(await createApp(name, projectType))
       return { ok: true }
     } catch (e) {
       return { ok: false, error: errMsg(e, '新建应用失败') }
@@ -208,6 +211,10 @@ export function useConfig(): ConfigStore {
 
 /** 必填校验：web 目标不需要包名/离线工程目录（与旧版行为一致） */
 export function validateRequired(config: AppConfig): string | null {
+  if (config.projectType !== 'uniapp') {
+    if (!config.app.name.trim()) return 'App 名称'
+    return config.paths.projectDir.trim() ? null : '项目根目录'
+  }
   const required: Array<[string, string]> = [
     [config.app.name, 'App 名称'],
     [config.app.appid, 'AppID'],

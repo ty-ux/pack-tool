@@ -75,6 +75,8 @@ PERMISSIONS = [
 ]
 
 DEFAULT_CONFIG = {
+    "projectType": "uniapp",
+    "projectBuild": {"gradleModule": "app", "flavor": ""},
     "app": {
         "name": "新应用",
         "icon": "",
@@ -103,6 +105,7 @@ DEFAULT_CONFIG = {
         "ssr": False,
     },
     "paths": {
+        "flutterCli": "",
         "hbuilderxCli": "",
         "projectDir": "",
         "integrateDir": "",

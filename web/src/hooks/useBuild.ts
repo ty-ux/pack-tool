@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { App } from 'antd'
 import { cancelBuild, getLogs, getStatus, startBuild, getDevices } from '../api'
 import { useConfig } from '../store/config'
-import { applyStepEvents, skeleton, skeletonFor, type PipelineStep } from '../utils/pipeline'
+import { applyStepEvents, skeletonFor, type PipelineStep } from '../utils/pipeline'
+import type { BuildPlatform } from '../types'
 
 export type LogClass = 'info' | 'ok' | 'warn' | 'err' | 'step' | 'cancel' | 'sys'
 export interface LogLine {
@@ -38,7 +39,7 @@ export function useBuild() {
   const [running, setRunning] = useState(false)
   const [phase, setPhase] = useState<BuildPhase>('idle')
   const [lines, setLines] = useState<LogLine[]>([])
-  const [steps, setSteps] = useState<PipelineStep[]>(() => skeletonFor(config?.build.platform))
+  const [steps, setSteps] = useState<PipelineStep[]>(() => skeletonFor(config?.build.platform, config?.projectType))
   const [follow, setFollow] = useState(true)
   const [starting, setStarting] = useState(false)
   const [serverOk, setServerOk] = useState<boolean | null>(null)
@@ -62,7 +63,7 @@ export function useBuild() {
       const cancelled = tail.includes('BUILD-CANCELLED')
       const ok = tail.includes('BUILD-OK') || tail.includes('全部完成')
       const err =
-        /\bBUILD FAILED\b/.test(tail) ||
+        /\bBUILD(?: |-)FAILED\b/.test(tail) ||
         ['Gradle 打包失败', '前端资源编译失败', 'Web 发行失败', 'WGT 制作失败', '发行失败'].some((s) => tail.includes(s))
       if (cancelled) {
         setPhase('cancelled')
@@ -89,7 +90,7 @@ export function useBuild() {
       const logRes = await getLogs()
       if (logRes.ok) logText = logRes.log
       setLines(parseLog(logText))
-      setSteps(applyStepEvents(skeletonFor(config?.build.platform), logText))
+      setSteps(applyStepEvents(skeletonFor(config?.build.platform, config?.projectType), logText))
     } catch {
       /* 单次轮询失败忽略 */
     }
@@ -104,8 +105,13 @@ export function useBuild() {
     if (!serverRunning) {
       // 任务结束：也可能构建从未开始（如启动即失败）
       const st = await getStatus().catch(() => null)
-      if (st && !st.running) {
-        settle(logText || '')
+      if (st && !st.running && !finishedRef.current) {
+        const final = await getLogs().catch(() => null)
+        if (final?.ok && !finishedRef.current) {
+          setLines(parseLog(final.log))
+          setSteps(applyStepEvents(skeletonFor(config?.build.platform, config?.projectType), final.log))
+          settle(final.log)
+        }
       }
     }
   }, [settle, config])
@@ -152,7 +158,7 @@ export function useBuild() {
   }, [startLogPoll, stopLogPoll])
 
   const start = useCallback(
-    async (platform: 'apk' | 'web' | 'wgt', webType: 'pc' | 'h5'): Promise<boolean> => {
+    async (platform: BuildPlatform, webType: 'pc' | 'h5'): Promise<boolean> => {
       // 打包前先保存配置（与旧版行为一致）
       const saved = await save()
       if (!saved.ok) {
@@ -164,7 +170,7 @@ export function useBuild() {
         const res = await startBuild(platform, webType)
         finishedRef.current = false
         setLines([])
-        setSteps(skeleton(platform))
+        setSteps(skeletonFor(platform, config?.projectType))
         setFollow(true)
         setPhase('running')
         setRunning(true)
@@ -178,7 +184,7 @@ export function useBuild() {
         setStarting(false)
       }
     },
-    [save, message, startLogPoll],
+    [save, message, startLogPoll, config?.projectType],
   )
 
   const cancel = useCallback(async () => {

@@ -953,3 +953,9 @@ p, .hint { text-wrap: pretty; }
     scroll-behavior: auto !important;
   }
 }
+.project-type-field {
+  border: 0;
+  margin-inline: 0;
+  min-inline-size: 0;
+  padding: 0;
+}

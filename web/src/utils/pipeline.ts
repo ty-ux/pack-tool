@@ -1,4 +1,5 @@
 /** 构建流水线：步骤骨架 + 日志 [STEP] 事件解析（单一真相源 = 日志） */
+import type { ProjectType } from '../types'
 
 export type StepState = 'wait' | 'running' | 'ok' | 'fail'
 
@@ -26,16 +27,24 @@ const WGT_SKELETON: PipelineStep[] = [
   { index: 2, key: 'copy', name: '复制产物', state: 'wait' },
 ]
 
+const PROJECT_SKELETON: PipelineStep[] = [
+  { index: 0, key: 'project', name: '构建项目', state: 'wait' },
+  { index: 1, key: 'artifact', name: '收集产物', state: 'wait' },
+]
+
 const STEP_RE = /\[STEP\]\s+(\d+)\|([^|]+)\|([^|]+)\|(running|ok|fail)/
 
-export function skeleton(platform: 'apk' | 'web' | 'wgt'): PipelineStep[] {
+function skeleton(platform: 'apk' | 'web' | 'wgt'): PipelineStep[] {
   if (platform === 'apk') return APK_SKELETON.map((s) => ({ ...s }))
   if (platform === 'wgt') return WGT_SKELETON.map((s) => ({ ...s }))
   return WEB_SKELETON.map((s) => ({ ...s }))
 }
 
 /** 按字符串 platform（可能为空/旧值）取骨架，非法值回退到 web */
-export function skeletonFor(platform: string | undefined | null): PipelineStep[] {
+export function skeletonFor(platform?: string | null, projectType?: ProjectType): PipelineStep[] {
+  if (platform === 'aab' || projectType === 'android' || projectType === 'flutter') {
+    return PROJECT_SKELETON.map((s) => ({ ...s }))
+  }
   if (platform === 'apk') return skeleton('apk')
   if (platform === 'wgt') return skeleton('wgt')
   return skeleton('web')

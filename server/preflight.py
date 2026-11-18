@@ -2,10 +2,12 @@
 import os
 import re
 import shutil
+from copy import deepcopy
 
 from . import adb as adb_mod
 from . import config as config_mod
 from . import packages as packages_mod
+from .project_builds import PROJECT_LABELS, prepare_project_build
 from .signing import signing_error
 
 PACKAGE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$")
@@ -32,8 +34,32 @@ def _gradle_value(text: str, key: str) -> str:
     return m.group(1) if m else ""
 
 
-def run_preflight() -> dict:
-    cfg = config_mod.load_config()
+def _project_preflight(cfg: dict) -> dict:
+    group = PROJECT_LABELS[cfg["projectType"]]
+    checks = []
+    try:
+        build = cfg["build"]
+        plan = prepare_project_build(cfg, build["platform"], build["buildType"])
+        checks.append({"id": "build-command", "group": group, "label": "构建命令", "status": "ok",
+                       "detail": f"{plan.executable} {' '.join(plan.args)}"})
+        checks.append({"id": "artifact-root", "group": group, "label": "产物目录", "status": "ok",
+                       "detail": str(plan.output or plan.artifact_root)})
+        if plan.build_type == "release":
+            checks.append({"id": "project-signing", "group": group, "label": "发行签名", "status": "warn",
+                           "detail": "发行版沿用项目自身的 Gradle 签名配置，请确认密钥和构建变体。"})
+    except (ValueError, OSError) as error:
+        checks.append({"id": "project-config", "group": group, "label": "构建配置", "status": "error",
+                       "detail": str(error)})
+    summary = {status: sum(check["status"] == status for check in checks) for status in ("ok", "warn", "error")}
+    return {"ok": True, "checks": checks, "summary": summary}
+
+
+def run_preflight(draft: dict | None = None) -> dict:
+    cfg = config_mod.load_config() if draft is None else deepcopy(config_mod.DEFAULT_CONFIG)
+    if draft is not None:
+        config_mod.deep_merge(cfg, draft)
+    if cfg["projectType"] in PROJECT_LABELS:
+        return _project_preflight(cfg)
     app = cfg.get("app") or {}
     android = cfg.get("android") or {}
     paths = cfg.get("paths") or {}

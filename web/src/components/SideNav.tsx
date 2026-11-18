@@ -13,7 +13,9 @@ import {
   SafetyCertificateOutlined,
 } from '@ant-design/icons'
 import type { BuildPhase } from '../hooks/useBuild'
+import type { ProjectType } from '../types'
 import { useConfig } from '../store/config'
+import { PROJECT_TYPES, ProjectTypeField } from './ProjectTypeField'
 
 interface Props {
   active: string
@@ -48,9 +50,10 @@ const NEW_APP_KEY = '__new__'
 export function SideNav({ active, onChange, permCount, buildPhase, serverText, serverState }: Props) {
   const busy = buildPhase === 'running'
   const { message, modal } = AntApp.useApp()
-  const { apps, activeId, switchApp, addApp, removeApp } = useConfig()
+  const { apps, activeId, config, switchApp, addApp, removeApp } = useConfig()
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
+  const [newType, setNewType] = useState<ProjectType>('uniapp')
   const [creatingBusy, setCreatingBusy] = useState(false)
 
   const activeName = apps.find((a) => a.id === activeId)?.name ?? '未加载'
@@ -88,7 +91,7 @@ export function SideNav({ active, onChange, permCount, buildPhase, serverText, s
       return
     }
     setCreatingBusy(true)
-    const res = await addApp(name)
+    const res = await addApp(name, newType)
     setCreatingBusy(false)
     if (res.ok) {
       setCreating(false)
@@ -106,7 +109,7 @@ export function SideNav({ active, onChange, permCount, buildPhase, serverText, s
         <span className="app-option">
           <span className="app-option-text">
             <span className="app-option-name">{a.name}</span>
-            <span className="app-option-sub">{a.packageName || '未设置包名'}</span>
+            <span className="app-option-sub">{a.packageName || PROJECT_TYPES[a.projectType]}</span>
           </span>
           {apps.length > 1 && (
             <Button
@@ -140,7 +143,9 @@ export function SideNav({ active, onChange, permCount, buildPhase, serverText, s
     {
       type: 'group',
       label: '配置',
-      children: CONFIG_ITEMS.map((it) => ({ key: it.key, icon: it.icon, label: renderLabel(it) })),
+      children: CONFIG_ITEMS
+        .filter((it) => !config || config.projectType === 'uniapp' || it.key === 'app' || it.key === 'path')
+        .map((it) => ({ key: it.key, icon: it.icon, label: renderLabel(it) })),
     },
     {
       type: 'group',
@@ -156,8 +161,8 @@ export function SideNav({ active, onChange, permCount, buildPhase, serverText, s
           <RocketOutlined style={{ fontSize: 16 }} />
         </div>
         <div>
-          <div className="name">打包控制台</div>
-          <div className="sub">uni-app 发行工具</div>
+          <div className="name">PackTool</div>
+          <div className="sub">本地打包控制台</div>
         </div>
       </div>
 
@@ -169,7 +174,10 @@ export function SideNav({ active, onChange, permCount, buildPhase, serverText, s
             items: appItems,
             selectedKeys: [activeId],
             onClick: ({ key }) => {
-              if (key === NEW_APP_KEY) setCreating(true)
+              if (key === NEW_APP_KEY) {
+                setNewType(config?.projectType ?? 'uniapp')
+                setCreating(true)
+              }
               else if (key !== activeId) handleSwitch(key)
             },
           }}
@@ -212,18 +220,20 @@ export function SideNav({ active, onChange, permCount, buildPhase, serverText, s
         afterClose={() => setNewName('')}
         destroyOnHidden
       >
-        <p className="modal-hint">
-          新应用从默认配置开始，并沿用当前应用的 HBuilderX、离线工程、JDK、adb、输出目录与构建目标；
-          AppID、包名、项目目录需要重新填写。
-        </p>
+        <label htmlFor="new-app-name" className="field-label">App 名称</label>
         <Input
+          id="new-app-name"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          onPressEnter={submitCreate}
+          onPressEnter={(event) => {
+            if (!event.nativeEvent.isComposing && !creatingBusy) submitCreate()
+          }}
           placeholder="例如：示例应用"
           maxLength={40}
           autoFocus
+          required
         />
+        <ProjectTypeField value={newType} onChange={setNewType} />
       </Modal>
     </Layout.Sider>
   )

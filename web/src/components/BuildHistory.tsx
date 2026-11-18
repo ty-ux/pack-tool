@@ -15,7 +15,7 @@ const STATUS_TAG: Record<BuildRecord['status'], { color: string; label: string }
   running: { color: 'processing', label: '进行中' },
 }
 
-type Filter = 'all' | 'apk' | 'web' | 'wgt'
+type Filter = 'all' | BuildRecord['platform']
 
 function fmtDuration(ms: number | null): string {
   if (ms == null) return '—'
@@ -28,7 +28,7 @@ function fmtDuration(ms: number | null): string {
 function targetLabel(r: BuildRecord): string {
   if (r.platform === 'web') return r.web_type === 'pc' ? '网站-PC Web' : '手机H5'
   if (r.platform === 'wgt') return 'WGT 热更新包'
-  return `APK (${r.build_type})`
+  return r.target_desc || `${r.platform.toUpperCase()} (${r.build_type})`
 }
 
 function fmtTime(iso: string | null): string {
@@ -110,7 +110,7 @@ export function BuildHistory({ buildPhase, onGoBuild }: Props) {
     try {
       const [d, logRes] = await Promise.all([getHistoryDetail(r.id), getHistoryLog(r.id)])
       setDetail(d.build)
-      const base = skeletonFor(d.build.platform)
+      const base = skeletonFor(d.build.platform, d.build.config_snapshot?.projectType)
       setDetailSteps(applyStepEvents(base, logRes.log))
       setDetailLines(parseLog(logRes.log))
     } catch {
@@ -169,6 +169,7 @@ export function BuildHistory({ buildPhase, onGoBuild }: Props) {
           options={[
             { label: '全部', value: 'all' },
             { label: 'APK', value: 'apk' },
+            { label: 'AAB', value: 'aab' },
             { label: 'Web', value: 'web' },
             { label: 'WGT', value: 'wgt' },
           ]}

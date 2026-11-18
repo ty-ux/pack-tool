@@ -126,6 +126,23 @@ async function openWindow() {
     '.then(([apps, history]) => apps.ok && history.ok && document.querySelector("#root")?.childElementCount > 0)',
   )
   if (!ready) throw new Error('React, application configuration or build history did not load')
+  const typedApps = await contents.executeJavaScript(`
+    (async () => {
+      for (const projectType of ['android', 'flutter']) {
+        const app = await fetch('/api/apps', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: projectType, projectType }),
+        }).then(response => response.json())
+        if (!app.ok || app.config.projectType !== projectType ||
+            app.apps.find(profile => profile.id === app.active)?.projectType !== projectType) return false
+        const check = await fetch('/api/preflight').then(response => response.json())
+        if (!check.ok || check.checks[0]?.id !== 'project-config') return false
+      }
+      return true
+    })()
+  `)
+  if (!typedApps) throw new Error('Android and Flutter profiles did not load their build checks')
   app.quit()
 }
 

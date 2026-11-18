@@ -4,6 +4,7 @@ import { ClearOutlined, PictureOutlined, AndroidOutlined } from '@ant-design/ico
 import { useConfig } from '../store/config'
 import { BrowseInput } from '../components/BrowseInput'
 import { Field, FieldRow } from '../components/Field'
+import { ProjectTypeField } from '../components/ProjectTypeField'
 
 const DECODABLE_ICON = /\.(png|jpe?g|bmp|gif|tiff?)$/i
 
@@ -154,16 +155,39 @@ export function AppInfoPage() {
   const { config, setField } = useConfig()
   if (!config) return null
 
+  const basicFields = (
+    <>
+      <ProjectTypeField
+        value={config.projectType}
+        onChange={(type) => {
+          setField(['projectType'], type)
+          if (type !== config.projectType) setField(['build', 'platform'], 'apk')
+        }}
+      />
+      <Field label="App 名称" required hint={config.projectType === 'uniapp' ? undefined : '用于在 PackTool 中区分项目'}>
+        <Input
+          value={config.app.name}
+          onChange={(e) => setField(['app', 'name'], e.target.value)}
+          placeholder="例如：示例应用"
+          required
+        />
+      </Field>
+    </>
+  )
+
+  if (config.projectType !== 'uniapp') {
+    return (
+      <Card title="基本信息">
+        {basicFields}
+        <p className="field-hint">包名、版本、权限及发行签名使用项目自身的 Android 配置。</p>
+      </Card>
+    )
+  }
+
   return (
     <div className="card-grid">
       <Card title="基本信息">
-        <Field label="App 名称" required>
-          <Input
-            value={config.app.name}
-            onChange={(e) => setField(['app', 'name'], e.target.value)}
-            placeholder="例如：示例应用"
-          />
-        </Field>
+        {basicFields}
         <Field label="App 图标">
           <IconPicker />
         </Field>
