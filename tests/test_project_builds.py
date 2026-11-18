@@ -13,7 +13,7 @@ class ProjectBuildTest(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="packtool fixture ")
         self.addCleanup(temporary.cleanup)
-        self.project = Path(temporary.name)
+        self.project = Path(temporary.name).resolve()
         self.config = deepcopy(DEFAULT_CONFIG)
         self.config["paths"]["projectDir"] = str(self.project)
 
