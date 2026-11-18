@@ -172,6 +172,7 @@ export function BuildHistory({ buildPhase, onGoBuild }: Props) {
             { label: 'AAB', value: 'aab' },
             { label: 'Web', value: 'web' },
             { label: 'WGT', value: 'wgt' },
+            { label: '微信小程序', value: 'mp-weixin' },
           ]}
         />
         <span className="spacer" />

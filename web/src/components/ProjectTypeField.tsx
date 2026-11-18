@@ -7,6 +7,7 @@ export const PROJECT_TYPES: Record<ProjectType, string> = {
   android: '原生 Android',
   flutter: 'Flutter',
   'react-native': 'React Native',
+  'wechat-miniprogram': '原生微信小程序',
 }
 
 interface Props {

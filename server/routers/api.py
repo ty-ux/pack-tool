@@ -18,6 +18,7 @@ from ..builder import build_manager
 from ..local_tools import discover_tools
 from ..paths import BUILD_LOG
 from ..project_builds import ANDROID_FORMATS, PROJECT_LABELS
+from ..wechat import NATIVE_TYPE, PLATFORM as WECHAT_PLATFORM, preview_file
 
 router = APIRouter(prefix="/api")
 CREATE_NO_WINDOW = 0x08000000
@@ -30,7 +31,7 @@ class SaveConfigBody(BaseModel):
 
 class CreateAppBody(BaseModel):
     name: Optional[str] = ""
-    projectType: Literal["uniapp", "android", "flutter", "react-native"] | None = None
+    projectType: Literal["uniapp", "android", "flutter", "react-native", "wechat-miniprogram"] | None = None
 
 
 class ActivateAppBody(BaseModel):
@@ -49,6 +50,7 @@ class AdbConnectBody(BaseModel):
 class BuildBody(BaseModel):
     platform: Optional[str] = None
     webType: Optional[str] = None
+    action: Literal["compile", "preview", "upload"] = "compile"
 
 
 class OpenDirBody(BaseModel):
@@ -299,14 +301,22 @@ def get_logs():
 
 @router.post("/build")
 def start_build(body: BuildBody):
-    cfg = config_mod.load_config()
+    profile = apps_mod.active_id()
+    cfg = apps_mod.load_app_config(profile)
 
-    formats = ANDROID_FORMATS if cfg["projectType"] in PROJECT_LABELS else ("apk", "web", "wgt")
+    if cfg["projectType"] == NATIVE_TYPE:
+        formats = (WECHAT_PLATFORM,)
+    elif cfg["projectType"] in PROJECT_LABELS:
+        formats = ANDROID_FORMATS
+    else:
+        formats = ("apk", "web", "wgt", WECHAT_PLATFORM)
     requested = (body.platform or "").strip().lower()
     if requested and requested not in formats:
         raise HTTPException(400, "当前工程类型不支持此构建目标")
     saved = cfg["build"].get("platform")
-    platform = requested or (saved if saved in formats else "apk")
+    platform = requested or (saved if saved in formats else formats[0])
+    if body.action != "compile" and platform != WECHAT_PLATFORM:
+        raise HTTPException(400, "预览和上传仅用于微信小程序")
 
     if platform == "web":
         web_type = (body.webType or "").strip().lower()
@@ -321,10 +331,27 @@ def start_build(body: BuildBody):
     if build_type not in ("debug", "release"):
         build_type = "debug"
 
-    ok, msg = build_manager.start(platform, web_type, build_type)
+    ok, msg = build_manager.start(platform, web_type, build_type, action=body.action, profile=profile, cfg=cfg)
     if not ok:
         raise HTTPException(400, msg)
     return {"ok": True, "message": msg}
+
+
+@router.get("/wechat/preview")
+def wechat_preview(receipt: str):
+    try:
+        path = preview_file(apps_mod.active_id(), receipt)
+        with path.open("rb") as preview:
+            signature = preview.read(8)
+    except (OSError, ValueError):
+        raise HTTPException(404, "未找到此预览二维码") from None
+    if signature.startswith(b"\xff\xd8\xff"):
+        media_type = "image/jpeg"
+    elif signature == b"\x89PNG\r\n\x1a\n":
+        media_type = "image/png"
+    else:
+        raise HTTPException(404, "预览二维码格式无效")
+    return FileResponse(path, media_type=media_type, headers={"Cache-Control": "no-store"})
 
 
 @router.post("/build/cancel")

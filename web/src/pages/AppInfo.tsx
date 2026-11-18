@@ -161,7 +161,9 @@ export function AppInfoPage() {
         value={config.projectType}
         onChange={(type) => {
           setField(['projectType'], type)
-          if (type !== config.projectType) setField(['build', 'platform'], 'apk')
+          if (type !== config.projectType) {
+            setField(['build', 'platform'], type === 'wechat-miniprogram' ? 'mp-weixin' : 'apk')
+          }
         }}
       />
       <Field label="App 名称" required hint={config.projectType === 'uniapp' ? undefined : '用于在 PackTool 中区分项目'}>
@@ -179,7 +181,11 @@ export function AppInfoPage() {
     return (
       <Card title="基本信息">
         {basicFields}
-        <p className="field-hint">包名、版本、权限及发行签名使用项目自身的 Android 配置。</p>
+        <p className="field-hint">
+          {config.projectType === 'wechat-miniprogram'
+            ? '在「路径配置」选择小程序项目，在「打包构建」设置微信 AppID 和代码上传密钥。'
+            : '包名、版本、权限及发行签名使用项目自身的 Android 配置。'}
+        </p>
       </Card>
     )
   }

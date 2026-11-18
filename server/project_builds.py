@@ -15,6 +15,17 @@ ANDROID_FORMATS = ("apk", "aab")
 PROJECT_LABELS = {"android": "原生 Android", "flutter": "Flutter", "react-native": "React Native"}
 
 
+def tool_command(executable: Path, args: list[str]) -> list[str]:
+    argv = [str(executable), *args]
+    if os.name != "nt" or executable.suffix.lower() not in (".bat", ".cmd"):
+        return argv
+    # Native argument arrays in Windows PowerShell handle spaces in batch paths.
+    call = "& " + " ".join("'" + arg.replace("'", "''") + "'" for arg in argv)
+    script = "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)\n" + call + "\nexit $LASTEXITCODE"
+    encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+    return ["powershell", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded]
+
+
 @dataclass
 class ProjectBuild:
     working_dir: Path
@@ -31,14 +42,7 @@ class ProjectBuild:
 
     @property
     def command(self) -> list[str]:
-        argv = [str(self.executable), *self.args]
-        if os.name != "nt" or self.executable.suffix.lower() not in (".bat", ".cmd"):
-            return argv
-        # Native argument arrays in Windows PowerShell handle spaces in batch paths.
-        call = "& " + " ".join("'" + arg.replace("'", "''") + "'" for arg in argv)
-        script = "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)\n" + call + "\nexit $LASTEXITCODE"
-        encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
-        return ["powershell", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded]
+        return tool_command(self.executable, self.args)
 
     @property
     def description(self) -> str:

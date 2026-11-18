@@ -129,9 +129,13 @@ def list_apps() -> list[dict]:
     return items
 
 
-def load_active_config() -> dict:
-    app = _read_app(active_id())
+def load_app_config(app_id: str) -> dict:
+    app = _read_app(app_id)
     return app["config"] if app else copy.deepcopy(DEFAULT_CONFIG)
+
+
+def load_active_config() -> dict:
+    return load_app_config(active_id())
 
 
 def save_active_config(cfg: dict) -> dict:
@@ -154,6 +158,8 @@ def create_app(name: str, project_type: str | None = None) -> dict:
         cfg["paths"][key] = base["paths"][key]
     if cfg["projectType"] == base["projectType"]:
         cfg["build"] = copy.deepcopy(base["build"])
+    if cfg["projectType"] == "wechat-miniprogram":
+        cfg["build"]["platform"] = "mp-weixin"
     cfg["install"] = copy.deepcopy(base.get("install") or cfg["install"])
     # 应用自身的字段留空，等用户填写
     cfg["app"]["name"] = name.strip() or "新应用"

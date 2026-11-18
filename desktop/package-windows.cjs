@@ -43,7 +43,7 @@ async function build() {
   const stage = path.join(out, 'app')
   const frozen = path.join(out, 'frozen')
   const backend = path.join(frozen, 'backend')
-  const scripts = ['build_apk.ps1', 'build_web.ps1', 'build_wgt.ps1', 'android-signing.init.gradle']
+  const scripts = ['build_apk.ps1', 'build_web.ps1', 'build_wgt.ps1', 'android-signing.init.gradle', 'wechat-ci.cjs']
   runPython([
     '-m', 'PyInstaller', '--noconfirm', '--onedir', '--name', 'backend',
     '--distpath', frozen, '--workpath', path.join(out, 'pyinstaller'), '--specpath', out,

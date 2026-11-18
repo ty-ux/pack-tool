@@ -3,7 +3,7 @@ import { App } from 'antd'
 import { cancelBuild, getLogs, getStatus, startBuild, getDevices } from '../api'
 import { useConfig } from '../store/config'
 import { applyStepEvents, skeletonFor, type PipelineStep } from '../utils/pipeline'
-import type { BuildPlatform } from '../types'
+import type { BuildPlatform, WechatAction } from '../types'
 
 export type LogClass = 'info' | 'ok' | 'warn' | 'err' | 'step' | 'cancel' | 'sys'
 export interface LogLine {
@@ -158,16 +158,15 @@ export function useBuild() {
   }, [startLogPoll, stopLogPoll])
 
   const start = useCallback(
-    async (platform: BuildPlatform, webType: 'pc' | 'h5'): Promise<boolean> => {
-      // 打包前先保存配置（与旧版行为一致）
-      const saved = await save()
-      if (!saved.ok) {
-        message.error(saved.error || '配置保存失败，请检查必填项')
-        return false
-      }
+    async (platform: BuildPlatform, webType: 'pc' | 'h5', action: WechatAction = 'compile'): Promise<boolean> => {
       setStarting(true)
       try {
-        const res = await startBuild(platform, webType)
+        const saved = await save()
+        if (!saved.ok) {
+          message.error(saved.error || '配置保存失败，请检查必填项')
+          return false
+        }
+        const res = await startBuild(platform, webType, action)
         finishedRef.current = false
         setLines([])
         setSteps(skeletonFor(platform, config?.projectType))
