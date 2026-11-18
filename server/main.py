@@ -16,7 +16,7 @@ PORT = 8765
 HOST = "127.0.0.1"
 
 
-def create_app() -> FastAPI:
+def create_app(*, allow_dev_proxy: bool = True) -> FastAPI:
     app = FastAPI(
         title="App 打包控制台",
         version=__version__,
@@ -25,12 +25,13 @@ def create_app() -> FastAPI:
     )
 
     # dev 模式（vite 5173 直连）CORS；生产同源走 proxy 或同源，无需放行
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    if allow_dev_proxy:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     app.include_router(api_router)
 

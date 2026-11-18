@@ -1,14 +1,14 @@
 # uni-app 打包控制台
 
-> uni-app + HBuilderX 一键打包工具（本地网页图形界面），支持 **Android APK 离线打包**、**Web/H5 发行** 与 **WGT 热更新包**
+> uni-app + HBuilderX 一键打包工具，提供 Windows 桌面版和源码运行方式，支持 **Android APK 离线打包**、**Web/H5 发行** 与 **WGT 热更新包**
 >
 > 后端：Python FastAPI（本地服务） · 前端：React 18 + TypeScript + Ant Design（Vite 构建）
 
-工具在 Windows 本机运行。事先安装 Python 3.10+、Node.js LTS 和 HBuilderX，并准备自己的 uni-app 项目。Web/H5 和 WGT 不需要 Android 离线工程。
+工具在 Windows 本机运行。准备 HBuilderX 和自己的 uni-app 项目。Android APK 额外需要 JDK、Android SDK 和 Android 离线工程。
 
 ## 功能
 
-- **网页图形界面**：浏览器操作，可视化配置
+- **图形界面**：在独立桌面窗口或浏览器中可视化配置
 - **可配置项**：
   - App 名称、图标、包名、版本号
   - 权限（勾选：相机/扫码/联网/存储/安装APK 等 17 项）
@@ -67,11 +67,22 @@ uniapp-pack-tool\
 
 ## 快速开始
 
-### 方式一：双击启动（推荐）
+### Windows x64 免安装版（推荐）
+
+1. 从 [GitHub Releases](https://github.com/ty-ux/uniapp-pack-tool/releases) 下载 `PackTool-win-x64.zip`。
+2. 解压整个 ZIP，双击文件夹里的 `PackTool.exe`。发行包已包含 Electron 和 Python 运行环境，可以直接启动。
+3. 在「路径配置」填写本机 HBuilderX、uni-app 项目及所用工具的路径。
+
+应用配置、依赖包、日志、历史数据库和默认 Web/WGT 产物保存在 `%APPDATA%\PackTool\workspace`。更新时解压新版即可继续使用这些数据。依赖包放入该目录下的 `packages`，或在「依赖包」页上传。如果以前从源码运行，可以在桌面版退出时将原目录的 `config` 和 `packages` 复制到桌面版的数据目录。
+
+### 从源码双击启动
+
+此方式需要 Python 3.10+、Node.js LTS。
+
 1. 克隆或解压仓库，首次使用双击 `build-frontend.bat` 生成 `web\dist`。更新前端源码后再执行一次。
 2. 双击 `start.bat` 启动服务并打开浏览器 `http://127.0.0.1:8765/`。如果缺少后端依赖，脚本会先安装。
 
-### 方式二：命令行启动
+### 从源码命令行启动
 在仓库根目录打开 PowerShell。
 
 ```powershell
@@ -87,6 +98,21 @@ cd web
 npm ci
 npm run dev        # http://localhost:5173，/api 自动代理到 8765
 ```
+
+### 构建 Windows 发行包
+
+在 Windows x64 上准备 64 位 Node.js 24 和 Python 3.13，从仓库根目录执行。
+
+```powershell
+npm --prefix web ci
+npm --prefix web run build
+npm --prefix desktop ci
+python -m pip install -r desktop/requirements-build.txt
+npm --prefix desktop run package:windows
+npm --prefix desktop run test:windows
+```
+
+ZIP 生成在 `desktop/out/PackTool-win-x64.zip`。GitHub Actions 在 PR 上构建并验证 ZIP。发布新版时，先在功能分支更新 `desktop/package.json` 和锁文件的版本，通过 PR 合并后，将对应的 `vX.Y.Z` 标签推送到 GitHub。构建通过后，工作流会把 ZIP 发布到 Releases。
 
 ### 界面操作
 1. 在 **打包构建** 页选择目标：Android APK、网站-PC Web、手机 H5 或 WGT 热更新包。

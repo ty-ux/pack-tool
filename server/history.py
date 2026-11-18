@@ -5,9 +5,9 @@ import sqlite3
 import datetime
 from pathlib import Path
 
-from .paths import BASE_DIR, BUILD_LOG, LOGS_DIR
+from .paths import BUILD_LOG, DATA_ROOT, LOGS_DIR
 
-DATA_DIR = BASE_DIR / "data"
+DATA_DIR = DATA_ROOT / "data"
 DB_PATH = DATA_DIR / "build_history.db"
 ARCHIVE_DIR = LOGS_DIR / "builds"
 MAX_KEEP = 100  # 保留策略：最多保留的构建记录数
