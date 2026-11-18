@@ -29,6 +29,8 @@ class BuildManager:
 
     def __init__(self):
         self._lock = threading.Lock()
+        self._idle = threading.Event()
+        self._idle.set()
         self._running = False
         self._cancel = False
         self._proc: subprocess.Popen | None = None
@@ -52,6 +54,7 @@ class BuildManager:
             # 先原子占位，避免"响应已发、线程未起"的防空窗
             self._running = True
             self._cancel = False
+            self._idle.clear()
 
         try:
             if platform == "web":
@@ -139,6 +142,7 @@ class BuildManager:
                 self._proc = None
                 self._current = None
                 self._current_build_id = None
+                self._idle.set()
             return False, f"启动打包失败: {e}"
 
     # ---------- 依赖包同步（构建前） ----------
@@ -167,14 +171,16 @@ class BuildManager:
         try:
             # 'a' 追加：头行已在 start 写好，child 通过继承句柄继续写
             with open(BUILD_LOG, "a", encoding="utf-8") as f:
-                proc = subprocess.Popen(
-                    cmd, stdout=f, stderr=subprocess.STDOUT,
-                    creationflags=CREATE_NO_WINDOW,
-                )
                 with self._lock:
-                    self._proc = proc
                     build_id = self._current_build_id
-                proc.wait()
+                    if not self._cancel:
+                        self._proc = subprocess.Popen(
+                            cmd, stdout=f, stderr=subprocess.STDOUT,
+                            creationflags=CREATE_NO_WINDOW,
+                        )
+                    proc = self._proc
+                if proc:
+                    proc.wait()
             with self._lock:
                 cancelled = self._cancel
             if cancelled:
@@ -192,6 +198,7 @@ class BuildManager:
                 self._cancel = False
                 self._current = None
                 self._current_build_id = None
+                self._idle.set()
 
     def _settle_history(self, build_id: int | None) -> None:
         """归档日志 + 判定状态 + 落库 + 清理超限记录"""
@@ -229,6 +236,10 @@ class BuildManager:
             except Exception:
                 pass
         return True, "已发送停止信号，正在结束构建进程"
+
+    def stop_and_wait(self, timeout: float) -> None:
+        self.cancel()
+        self._idle.wait(timeout)
 
 
 build_manager = BuildManager()

@@ -4,6 +4,7 @@ __pycache__/
 .venv/
 node_modules/
 /web/dist/
+/desktop/out/
 *.tsbuildinfo
 
 # 本地应用配置、插件、图标与构建数据

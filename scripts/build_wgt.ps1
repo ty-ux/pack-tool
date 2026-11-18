@@ -30,8 +30,9 @@ function Write-Log {
 }
 
 # ---------- 读取配置 ----------
+$dataRoot = if ($env:PACK_TOOL_DATA_DIR) { $env:PACK_TOOL_DATA_DIR } else { Join-Path $PSScriptRoot ".." }
 if (-not $Config) {
-    $Config = Join-Path $PSScriptRoot "..\config\pack_config.json"
+    $Config = Join-Path $dataRoot "config\pack_config.json"
 }
 if (-not (Test-Path $Config)) {
     Write-Log "配置文件不存在: $Config" "ERR"
@@ -100,7 +101,7 @@ try {
 # ---------- 1. HBuilderX CLI 制作 WGT 包 ----------
 Write-Log "步骤1/3: HBuilderX 制作 WGT 包 (publish app --type wgt)..." "STEP"
 Write-Step 1 "publish" "制作 WGT 包" "running"
-$wgtLog = Join-Path $PSScriptRoot "..\logs\wgt_build.log"
+$wgtLog = Join-Path $dataRoot "logs\wgt_build.log"
 New-Item -ItemType Directory -Force -Path (Split-Path $wgtLog) | Out-Null
 
 $cliArgs = @("publish", "app", "--type", "wgt", "--project", $project)
@@ -149,7 +150,7 @@ Write-Step 2 "copy" "复制产物" "running"
 
 $outDir = $cfg.paths.outputDir
 if (-not $outDir) {
-    $outDir = Join-Path $PSScriptRoot "..\output"
+    $outDir = Join-Path $dataRoot "output"
 }
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 

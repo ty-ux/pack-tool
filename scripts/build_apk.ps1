@@ -186,8 +186,9 @@ function Apply-AppIcon {
 }
 
 # ---------- 读取配置 ----------
+$dataRoot = if ($env:PACK_TOOL_DATA_DIR) { $env:PACK_TOOL_DATA_DIR } else { Join-Path $PSScriptRoot ".." }
 if (-not $Config) {
-    $Config = Join-Path $PSScriptRoot "..\config\pack_config.json"
+    $Config = Join-Path $dataRoot "config\pack_config.json"
 }
 if (-not (Test-Path $Config)) {
     Write-Log "配置文件不存在: $Config" "ERR"
@@ -309,7 +310,7 @@ try {
 # ---------- 1. HBuilderX 编译前端资源 ----------
 Write-Log "步骤1/5: HBuilderX 编译前端资源 (appResource)..." "STEP"
 Write-Step 1 "compile" "前端资源编译" "running"
-$compileLog = Join-Path $PSScriptRoot "..\logs\compile.log"
+$compileLog = Join-Path $dataRoot "logs\compile.log"
 New-Item -ItemType Directory -Force -Path (Split-Path $compileLog) | Out-Null
 
 # 记录编译开始时间，用于校验产物是否为本次编译新生成
@@ -541,7 +542,7 @@ if ($buildType -notin @("debug", "release")) {
     exit 1
 }
 
-$gradleLog = Join-Path $PSScriptRoot "..\logs\gradle.log"
+$gradleLog = Join-Path $dataRoot "logs\gradle.log"
 
 # 必须在 HBuilder-Integrate-AS 根目录下运行 gradlew
 # 注意: gradlew 大量输出到 stderr，需临时放开 ErrorActionPreference 避免 NativeCommandError 中断

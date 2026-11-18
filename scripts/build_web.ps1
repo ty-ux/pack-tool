@@ -32,8 +32,9 @@ function Write-Log {
 }
 
 # ---------- 读取配置 ----------
+$dataRoot = if ($env:PACK_TOOL_DATA_DIR) { $env:PACK_TOOL_DATA_DIR } else { Join-Path $PSScriptRoot ".." }
 if (-not $Config) {
-    $Config = Join-Path $PSScriptRoot "..\config\pack_config.json"
+    $Config = Join-Path $dataRoot "config\pack_config.json"
 }
 if (-not (Test-Path $Config)) {
     Write-Log "配置文件不存在: $Config" "ERR"
@@ -92,7 +93,7 @@ function Write-Step {
 # ---------- 1. HBuilderX CLI 发行 Web ----------
 Write-Log "步骤1/2: HBuilderX 发行 Web (publish web)..." "STEP"
 Write-Step 1 "publish" "Web 发行" "running"
-$webLog = Join-Path $PSScriptRoot "..\logs\web_build.log"
+$webLog = Join-Path $dataRoot "logs\web_build.log"
 New-Item -ItemType Directory -Force -Path (Split-Path $webLog) | Out-Null
 
 $cliArgs = @("publish", "web", "--project", $project)
@@ -187,7 +188,7 @@ if (-not $outDir) {
     if ($cfg.paths.outputDir) {
         $outDir = Join-Path $cfg.paths.outputDir "build"
     } else {
-        $outDir = Join-Path $PSScriptRoot "..\output\build"
+        $outDir = Join-Path $dataRoot "output\build"
     }
 }
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
