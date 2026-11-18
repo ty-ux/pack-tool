@@ -49,7 +49,7 @@ async function main() {
     }
     fs.renameSync(partial, job.artifact)
   } finally {
-    fs.unlinkSync(partial, { throwIfNoEntry: false })
+    fs.rmSync(partial, { force: true })
     fs.rmdirSync(scratch)
   }
 }
