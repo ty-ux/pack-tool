@@ -57,9 +57,9 @@ GUIDE_HTML = """<!DOCTYPE html>
 <body>
 <div class="box">
   <h1>App 打包控制台</h1>
-  <p>前端尚未构建。请先在 <code>web/</code> 目录执行：</p>
+  <p>前端尚未构建。请双击 <code>build-frontend.bat</code>，或在 <code>web/</code> 目录执行以下命令。</p>
   <div class="step">
-    <b>1.</b> 安装依赖：<code>npm install</code><br>
+    <b>1.</b> 安装依赖：<code>npm ci</code><br>
     <b>2.</b> 构建产物：<code>npm run build</code><br>
     <b>3.</b> 刷新本页面
     <hr style="border-color: rgba(148,163,184,.2); margin: 10px 0">
