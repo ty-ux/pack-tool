@@ -1,6 +1,6 @@
 # PackTool
 
-> Windows 本地打包控制台。支持原生 Android、Flutter 和 React Native 的 APK、AAB 构建，以及 uni-app 的离线 APK、Web/H5 和 WGT。
+> Windows 本地打包控制台。支持原生 Android、Flutter 和 React Native 的 APK、AAB 构建，uni-app 的离线 APK、Web/H5 和 WGT，以及 uni-app 和原生微信小程序的构建、预览和上传开发版本。
 >
 > 后端：Python FastAPI（本地服务） · 前端：React 18 + TypeScript + Ant Design（Vite 构建）
 
@@ -11,7 +11,8 @@
 | 原生 Android | APK、AAB | 工程自带的 Gradle Wrapper、兼容的 JDK 和 Android SDK |
 | Flutter | APK、AAB | Flutter SDK、Android SDK 和 Android SDK Command-line Tools |
 | React Native | APK、AAB | 工程的 JavaScript 依赖、Node.js、`android/` 中的 Gradle Wrapper、兼容的 JDK 和 Android SDK |
-| uni-app | APK、Web/H5、WGT | HBuilderX。离线 APK 额外需要 Android 离线工程、JDK 和 Android SDK |
+| uni-app | APK、Web/H5、WGT、微信小程序 | HBuilderX 或提供微信构建脚本的 uni-app CLI 工程。离线 APK 额外需要 Android 离线工程、JDK 和 Android SDK |
+| 原生微信小程序 | 编译 ZIP、预览二维码、上传开发版本 | Node.js、微信官方 `miniprogram-ci`、微信代码上传密钥 |
 
 ## 功能
 
@@ -26,6 +27,7 @@
   - `Android APK`：HBuilderX 编译 appResource → 同步资源 → Gradle 离线打包
   - `网站-PC Web` / `手机H5`：利用 HBuilderX 发行能力（`cli publish web`）生成 Web 产物
   - `WGT 热更新包`：利用 HBuilderX 制作应用资源升级包（`cli publish app --type wgt`），可配合升级中心做 App 热更新
+  - `微信小程序`：通过项目的 `build:mp-weixin` 或 HBuilderX CLI 生成 `mp-weixin` 产物
 - **Web 发行配置**：网站标题(webTitle)、网站域名(webDomain)、SSR（Vue3）
 - **可选安装**：uni-app 的 APK 打包后可自动安装到指定设备或模拟器。
 - **构建流水线**：实时显示当前阶段和构建日志。
@@ -36,6 +38,14 @@
 - **真实"停止构建"**：一键杀停整个构建进程树（powershell → gradle → java），不残留后台任务
 - **产物目录**：原生 Android、Flutter 和 React Native 默认保留在项目构建目录，也可以指定导出目录。uni-app 默认将 APK 保留在离线工程，WGT 生成在 `output/`，Web/H5 生成在 `output/build/`。
 - **记住配置**：每个应用的配置各存一份（`config\apps`），下次打开自动恢复并停留在上次使用的应用
+
+## 微信小程序
+
+1. 在「应用信息」选择工程类型。原生小程序在「路径配置」选择含 `project.config.json` 的目录，支持配置文件里的 `miniprogramRoot`。uni-app 在「打包构建」选择「微信小程序」目标。
+2. uni-app 点击「编译小程序」生成产物。CLI 工程先安装项目依赖，产物默认在 `dist/build/mp-weixin`。HBuilderX 工程启动 HBuilderX 并导入项目，产物默认在 `unpackage/dist/build/mp-weixin`。预览和上传使用上次编译产物，源码修改后请重新编译。
+3. 通过 `npm install -g miniprogram-ci` 安装[微信官方 CI](https://github.com/wechat-miniprogram/miniprogram-ci-dist)，也可以把它装在项目中。原生小程序通过它编译 ZIP，两个工程类型均可生成预览二维码和上传开发版本。
+4. 在「打包构建」选择微信公众平台下载的代码上传密钥。密钥存放在项目目录之外，每个 PackTool 应用独立保存文件路径。AppID 留空时读取 `project.config.json`。启用 IP 白名单时需放行本机出口 IP。
+5. 「生成预览二维码」可直接在 PackTool 中扫码。「上传开发版本」使用填写的版本号和说明。提审和正式发布在微信公众平台操作。
 
 ## 目录结构
 

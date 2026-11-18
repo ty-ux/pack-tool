@@ -10,6 +10,7 @@ from . import packages as packages_mod
 from .local_tools import android_sdk_environment
 from .project_builds import PROJECT_LABELS, prepare_project_build
 from .signing import signing_error
+from .wechat import NATIVE_TYPE, PLATFORM as WECHAT_PLATFORM, prepare_wechat_build
 
 PACKAGE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$")
 DRAWABLE_ICON_DIRS = (
@@ -59,6 +60,14 @@ def run_preflight(draft: dict | None = None) -> dict:
     cfg = config_mod.load_config() if draft is None else deepcopy(config_mod.DEFAULT_CONFIG)
     if draft is not None:
         config_mod.deep_merge(cfg, draft)
+    if cfg["projectType"] == NATIVE_TYPE or cfg["build"]["platform"] == WECHAT_PLATFORM:
+        try:
+            plan = prepare_wechat_build(cfg, "compile", "")
+            status, detail = "ok", str(plan.artifact or plan.artifact_root)
+        except (ValueError, OSError) as error:
+            status, detail = "error", str(error)
+        check = {"id": "wechat-build", "group": "微信小程序", "label": "编译配置", "status": status, "detail": detail}
+        return {"ok": True, "checks": [check], "summary": {"ok": int(status == "ok"), "warn": 0, "error": int(status == "error")}}
     if cfg["projectType"] in PROJECT_LABELS:
         return _project_preflight(cfg)
     app = cfg.get("app") or {}

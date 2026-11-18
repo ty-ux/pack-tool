@@ -154,6 +154,8 @@ def create_app(name: str, project_type: str | None = None) -> dict:
         cfg["paths"][key] = base["paths"][key]
     if cfg["projectType"] == base["projectType"]:
         cfg["build"] = copy.deepcopy(base["build"])
+    if cfg["projectType"] == "wechat-miniprogram":
+        cfg["build"]["platform"] = "mp-weixin"
     cfg["install"] = copy.deepcopy(base.get("install") or cfg["install"])
     # 应用自身的字段留空，等用户填写
     cfg["app"]["name"] = name.strip() or "新应用"

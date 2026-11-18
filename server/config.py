@@ -104,6 +104,12 @@ DEFAULT_CONFIG = {
         "webDomain": "",
         "ssr": False,
     },
+    "wechat": {
+        "appid": "",
+        "privateKeyPath": "",
+        "version": "1.0.0",
+        "description": "",
+    },
     "paths": {
         "flutterCli": "",
         "hbuilderxCli": "",

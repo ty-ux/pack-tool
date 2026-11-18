@@ -5,7 +5,7 @@ import re
 import subprocess
 import threading
 
-from . import config as config_mod
+from . import apps, config as config_mod
 from .adb import find_adb
 from . import history as history_mod
 from . import packages as packages_mod
@@ -13,6 +13,7 @@ from .local_tools import android_sdk_environment
 from .paths import BUILD_LOG, LOGS_DIR, SCRIPTS_DIR, fspath
 from .project_builds import PROJECT_LABELS, ProjectBuild, prepare_project_build
 from .signing import signing_error
+from .wechat import PLATFORM as WECHAT_PLATFORM, MiniProgramBuild, prepare_wechat_build
 
 CREATE_NO_WINDOW = 0x08000000
 
@@ -48,7 +49,7 @@ class BuildManager:
             return dict(self._current) if self._current else None
 
     # ---------- 启动 ----------
-    def start(self, platform: str, web_type: str, build_type: str) -> tuple[bool, str]:
+    def start(self, platform: str, web_type: str, build_type: str, action: str = "compile") -> tuple[bool, str]:
         with self._lock:
             if self._running:
                 return False, "已有打包任务在运行中"
@@ -61,7 +62,10 @@ class BuildManager:
             cfg = config_mod.load_config()
             plan = None
             env = None
-            if cfg["projectType"] in PROJECT_LABELS:
+            if platform == WECHAT_PLATFORM:
+                plan = prepare_wechat_build(cfg, action, apps.active_id())
+                cmd, target_desc, env = plan.command, plan.description, plan.env
+            elif cfg["projectType"] in PROJECT_LABELS:
                 plan = prepare_project_build(cfg, platform, build_type)
                 cmd, target_desc = plan.command, plan.description
                 env = plan.env
@@ -140,7 +144,7 @@ class BuildManager:
                         "build_type": build_type,
                         "target_desc": target_desc,
                     },
-                    cfg,
+                    {**cfg, "wechat": {key: value for key, value in cfg["wechat"].items() if key != "privateKeyPath"}},
                 )
             threading.Thread(target=self._worker, args=(cmd, plan, env), daemon=True).start()
             return True, f"打包任务已启动 ({target_desc})"
@@ -175,9 +179,11 @@ class BuildManager:
             raise RuntimeError(f"依赖包同步失败（{summary['error']} 个包出错），已中止打包: {detail}")
 
     # ---------- 工作线程 ----------
-    def _worker(self, cmd: list[str], plan: ProjectBuild | None, env: dict[str, str] | None) -> None:
+    def _worker(self, cmd: list[str], plan: ProjectBuild | MiniProgramBuild | None, env: dict[str, str] | None) -> None:
         build_id = None
         stage = "0|project|构建项目"
+        if isinstance(plan, MiniProgramBuild):
+            stage = f"0|project|{plan.description}"
         try:
             # 'a' 追加：头行已在 start 写好，child 通过继承句柄继续写
             with open(BUILD_LOG, "a", encoding="utf-8") as f:
@@ -211,7 +217,14 @@ class BuildManager:
                     f.write(f"[STEP] {stage}|running\n")
                     f.flush()
                     artifact = plan.collect()
-                    f.write(f"[STEP] {stage}|ok\n[OK] 构建产物: {artifact}\nBUILD-OK\n")
+                    f.write(f"[STEP] {stage}|ok\n")
+                    if artifact:
+                        f.write(f"[OK] 构建产物: {artifact}\n")
+                    if isinstance(plan, MiniProgramBuild):
+                        f.write(f"[WECHAT-BUILD] {plan.profile}\n")
+                        if plan.receipt:
+                            f.write(f"[WECHAT-PREVIEW] {plan.profile}/{plan.receipt}\n")
+                    f.write("BUILD-OK\n")
             self._settle_history(build_id)
         except Exception as e:
             with open(BUILD_LOG, "a", encoding="utf-8") as f:

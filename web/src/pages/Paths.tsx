@@ -12,6 +12,7 @@ const PROJECT_DIRECTORY_HINTS: Record<ProjectType, string> = {
   android: '需包含 Gradle Wrapper（gradlew.bat）',
   flutter: '需包含 pubspec.yaml 和 android/ 目录',
   'react-native': '请选择包含 package.json 和 android/gradlew.bat 的目录，并先安装项目的 JavaScript 依赖',
+  'wechat-miniprogram': '请选择包含 project.config.json 的目录',
 }
 
 export function PathsPage() {
@@ -43,13 +44,15 @@ export function PathsPage() {
   const uniapp = config.projectType === 'uniapp'
   const flutter = config.projectType === 'flutter'
   const reactNative = config.projectType === 'react-native'
-  const androidBuild = !uniapp || config.build.platform === 'apk'
+  const wechat = config.projectType === 'wechat-miniprogram' || config.build.platform === 'mp-weixin'
+  const androidBuild = !wechat && (!uniapp || config.build.platform === 'apk')
 
   const set = (key: keyof typeof p) => (value: string) => setField(['paths', key], value)
   const suggestions = (key: keyof LocalTools, tool: string) => ({ tool, paths: tools?.[key] ?? [] })
-  const visibleTools: (keyof LocalTools)[] = ['javaHome']
+  const visibleTools: (keyof LocalTools)[] = wechat ? ['nodeDir'] : ['javaHome']
   if (androidBuild) visibleTools.push('androidSdk')
-  if (uniapp) visibleTools.push('hbuilderxCli', 'adb')
+  if (uniapp) visibleTools.push('hbuilderxCli')
+  if (uniapp && !wechat) visibleTools.push('adb')
   if (flutter) visibleTools.push('flutterCli')
   if (reactNative) visibleTools.push('nodeDir')
   const found = visibleTools.reduce((count, key) => count + (tools?.[key].length ?? 0), 0)
@@ -68,7 +71,9 @@ export function PathsPage() {
           </Button>
           <span className="field-hint" role="status">{scanStatus}</span>
         </div>
-        {uniapp && <Field label="HBuilderX CLI 路径" required hint="HBuilderX 安装目录下的 cli.exe，用于编译前端资源">
+        {uniapp && <Field label="HBuilderX CLI 路径" required={!wechat} hint={wechat
+          ? 'HBuilderX 工程需配置。提供 build:mp-weixin 脚本的 uni-app CLI 工程使用 Node.js'
+          : 'HBuilderX 安装目录下的 cli.exe，用于编译前端资源'}>
           <BrowseInput
             value={p.hbuilderxCli}
             onChange={set('hbuilderxCli')}
@@ -94,7 +99,7 @@ export function PathsPage() {
             suggestions={suggestions('flutterCli', 'Flutter CLI')}
           />
         </Field>}
-        {uniapp && <Field label="离线打包工程目录" required={config.build.platform === 'apk'} hint="仅 APK 需要。请选择包含 simpleDemo 的 HBuilder-Integrate-AS 根目录">
+        {uniapp && !wechat && <Field label="离线打包工程目录" required={config.build.platform === 'apk'} hint="仅 APK 需要。请选择包含 simpleDemo 的 HBuilder-Integrate-AS 根目录">
           <BrowseInput
             value={p.integrateDir}
             onChange={set('integrateDir')}
@@ -102,7 +107,7 @@ export function PathsPage() {
             placeholder="C:\Projects\HBuilder-Integrate-AS"
           />
         </Field>}
-        <Field label="JDK 路径" hint="可选，为本次构建设置 JAVA_HOME。JDK 版本需与项目的 Gradle 配置兼容">
+        {!wechat && <Field label="JDK 路径" hint="可选，为本次构建设置 JAVA_HOME。JDK 版本需与项目的 Gradle 配置兼容">
           <BrowseInput
             value={p.javaHome}
             onChange={set('javaHome')}
@@ -110,7 +115,7 @@ export function PathsPage() {
             placeholder="C:\Java\jdk-17"
             suggestions={suggestions('javaHome', 'JDK')}
           />
-        </Field>
+        </Field>}
         {androidBuild && <Field label="Android SDK 目录" hint="可选，为构建设置 ANDROID_HOME。项目的 sdk.dir 或 Flutter 的 Android SDK 设置可能优先">
           <BrowseInput
             value={p.androidSdk}
@@ -120,7 +125,7 @@ export function PathsPage() {
             suggestions={suggestions('androidSdk', 'Android SDK')}
           />
         </Field>}
-        {reactNative && <Field label="Node.js 目录" hint="可选。选择包含 node.exe 的目录，留空时使用 PATH 中的 Node.js">
+        {(reactNative || wechat) && <Field label="Node.js 目录" hint="可选。选择包含 node.exe 的目录，留空时使用 PATH 中的 Node.js">
           <BrowseInput
             value={p.nodeDir}
             onChange={set('nodeDir')}
@@ -129,7 +134,7 @@ export function PathsPage() {
             suggestions={suggestions('nodeDir', 'Node.js')}
           />
         </Field>}
-        {uniapp && <Field label="adb 路径" hint="可选，用于构建后安装与设备列表">
+        {uniapp && !wechat && <Field label="adb 路径" hint="可选，用于构建后安装与设备列表">
           <BrowseInput
             value={p.adb}
             onChange={set('adb')}
@@ -140,7 +145,7 @@ export function PathsPage() {
         </Field>}
       </Card>
 
-      <Card title="产物输出">
+      {!wechat && <Card title="产物输出">
         <Field label={uniapp ? 'APK / WGT 输出目录' : 'APK / AAB 输出目录'} hint={
           uniapp ? '留空时 APK 保留在离线工程，WGT 保存到工具的 output 目录' : '可选。留空时使用项目默认的构建产物目录'
         }>
@@ -171,7 +176,7 @@ export function PathsPage() {
             路径会原样传给构建脚本，建议使用绝对路径且避免中文空格；「打包构建」页的构建前检查会提前验证这些目录是否存在。
           </p>
         </div>
-      </Card>
+      </Card>}
     </div>
   )
 }

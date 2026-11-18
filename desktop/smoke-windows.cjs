@@ -17,6 +17,9 @@ try {
     '-m', 'zipfile', '-e', path.join(__dirname, 'out', 'PackTool-win-x64.zip'), unpacked,
   ])
   const application = path.join(unpacked, 'PackTool-win32-x64')
+  if (!fs.existsSync(path.join(application, 'resources', 'backend', '_internal', 'scripts', 'wechat-ci.cjs'))) {
+    throw new Error('Missing WeChat CI runner in the bundled backend')
+  }
   fs.mkdirSync(userData)
   const jdk = path.join(testRoot, 'test JDK')
   fs.mkdirSync(path.join(jdk, 'bin'), { recursive: true })

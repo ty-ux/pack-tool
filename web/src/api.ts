@@ -17,6 +17,7 @@ import type {
   Permission,
   PreflightPayload,
   ProjectType,
+  WechatAction,
 } from './types'
 
 class ApiError extends Error {
@@ -87,8 +88,8 @@ export const getDevices = () => api.get<DevicesPayload>('/api/devices')
 export const adbRestart = () => api.post<DevicesPayload & AckPayload>('/api/adb/restart')
 export const adbConnect = (hostPort: string) =>
   api.post<DevicesPayload & AckPayload>('/api/adb/connect', { hostPort })
-export const startBuild = (platform: string, webType: string) =>
-  api.post<AckPayload>('/api/build', { platform, webType })
+export const startBuild = (platform: string, webType: string, action: WechatAction) =>
+  api.post<AckPayload>('/api/build', { platform, webType, action })
 export const cancelBuild = () => api.post<AckPayload>('/api/build/cancel')
 export const openDir = (dir: string) => api.post<AckPayload>('/api/open-dir', { dir })
 export const browse = (payload: { type: 'dir' | 'file'; title?: string; fileFilter?: string }) =>

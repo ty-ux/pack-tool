@@ -40,6 +40,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   signing: { keystorePath: '', keyAlias: '', storePasswordEnv: 'PACK_TOOL_KEYSTORE_PASSWORD', keyPasswordEnv: '' },
   build: { buildType: 'debug', platform: 'apk', webType: 'h5' },
   web: { webTitle: '', webDomain: '', ssr: false },
+  wechat: { appid: '', privateKeyPath: '', version: '1.0.0', description: '' },
   paths: {
     flutterCli: '',
     hbuilderxCli: '',
@@ -213,7 +214,7 @@ export function useConfig(): ConfigStore {
 
 /** 必填校验：web 目标不需要包名/离线工程目录（与旧版行为一致） */
 export function validateRequired(config: AppConfig): string | null {
-  if (config.projectType !== 'uniapp') {
+  if (config.projectType !== 'uniapp' || config.build.platform === 'mp-weixin') {
     if (!config.app.name.trim()) return 'App 名称'
     return config.paths.projectDir.trim() ? null : '项目根目录'
   }

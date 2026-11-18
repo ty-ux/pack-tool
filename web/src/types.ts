@@ -1,4 +1,5 @@
-export type ProjectType = 'uniapp' | 'android' | 'flutter' | 'react-native'
+export type ProjectType = 'uniapp' | 'android' | 'flutter' | 'react-native' | 'wechat-miniprogram'
+export type WechatAction = 'compile' | 'preview' | 'upload'
 
 export interface LocalToolCandidate {
   path: string
@@ -6,7 +7,7 @@ export interface LocalToolCandidate {
 }
 
 export type LocalTools = Record<'javaHome' | 'androidSdk' | 'flutterCli' | 'adb' | 'hbuilderxCli' | 'nodeDir', LocalToolCandidate[]>
-export type BuildPlatform = 'apk' | 'aab' | 'web' | 'wgt'
+export type BuildPlatform = 'apk' | 'aab' | 'web' | 'wgt' | 'mp-weixin'
 
 /** 与后端 DEFAULT_CONFIG 结构一一对应 */
 export interface AppConfig {
@@ -41,6 +42,12 @@ export interface AppConfig {
     webTitle: string
     webDomain: string
     ssr: boolean
+  }
+  wechat: {
+    appid: string
+    privateKeyPath: string
+    version: string
+    description: string
   }
   paths: {
     flutterCli: string
@@ -171,7 +178,7 @@ export type BrowsePayload =
   | { ok: false; cancelled?: boolean; path?: string; error?: string }
 
 /** 打包目标（platform + webType 组合） */
-export type BuildTarget = 'apk' | 'aab' | 'web-pc' | 'web-h5' | 'wgt'
+export type BuildTarget = Exclude<BuildPlatform, 'web'> | 'web-pc' | 'web-h5'
 
 /** 构建历史记录 */
 export interface BuildRecord {

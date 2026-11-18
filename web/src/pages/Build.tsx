@@ -16,6 +16,7 @@ import { StatCards } from '../components/StatCards'
 import { PipelineSteps } from '../components/PipelineSteps'
 import { Field, FieldRow } from '../components/Field'
 import { PROJECT_TYPES } from '../components/ProjectTypeField'
+import { WechatBuildSettings } from '../components/WechatBuildSettings'
 import { skeletonFor } from '../utils/pipeline'
 
 interface Props {
@@ -92,6 +93,9 @@ export function BuildPage({ build }: Props) {
   const platform = config.build.platform
   const webType = config.build.webType
   const uniapp = config.projectType === 'uniapp'
+  const nativeWechat = config.projectType === 'wechat-miniprogram'
+  const wechat = nativeWechat || platform === 'mp-weixin'
+  const androidTarget = !wechat && (!uniapp || platform === 'apk')
   const target: BuildTarget = platform === 'web' ? `web-${webType}` : platform
 
   const targetOptions = uniapp ? [
@@ -99,6 +103,7 @@ export function BuildPage({ build }: Props) {
     { label: '网站-PC Web', value: 'web-pc' },
     { label: '手机H5', value: 'web-h5' },
     { label: 'WGT 热更新包', value: 'wgt' },
+    { label: '微信小程序', value: 'mp-weixin' },
   ] : [{ label: 'Android APK', value: 'apk' }, { label: 'Android App Bundle (AAB)', value: 'aab' }]
 
   const onTarget = (t: BuildTarget) => {
@@ -116,13 +121,15 @@ export function BuildPage({ build }: Props) {
     if (build.running) {
       build.cancel()
     } else {
-      build.start(config.build.platform, config.build.webType)
+      build.start(wechat ? 'mp-weixin' : platform, webType)
     }
   }
 
   const handleOpenOutput = () => {
     let dir = ''
-    if (platform === 'web') {
+    if (wechat) {
+      dir = wechatArtifact
+    } else if (platform === 'web') {
       dir = config.paths.webOutputDir?.trim()
       if (!dir) {
         const base = config.paths.outputDir?.trim()
@@ -146,6 +153,16 @@ export function BuildPage({ build }: Props) {
   const issues = preflight?.checks.filter((c) => c.status !== 'ok') ?? []
   const visibleChecks = showAllChecks ? (preflight?.checks ?? []) : issues
   const summary = preflight?.summary
+  const artifactMarker = '[OK] 构建产物: '
+  const wechatSucceeded = wechat && build.phase === 'ok'
+    && build.lines.some(({ text }) => text === `[WECHAT-BUILD] ${activeId}`)
+  const wechatArtifact = wechatSucceeded
+    ? build.lines.find(({ text }) => text.startsWith(artifactMarker))?.text.slice(artifactMarker.length) ?? ''
+    : ''
+  const previewMarker = `[WECHAT-PREVIEW] ${activeId}/`
+  const preview = wechatSucceeded
+    ? build.lines.find(({ text }) => text.startsWith(previewMarker))?.text.slice(previewMarker.length)
+    : undefined
 
   const resultText =
     build.phase === 'ok'
@@ -159,7 +176,11 @@ export function BuildPage({ build }: Props) {
   return (
     <div className="stack">
       <StatCards
-        items={uniapp ? [
+        items={wechat ? [
+          { label: '项目名称', value: config.app.name || '—' },
+          { label: '工程类型', value: PROJECT_TYPES[config.projectType] },
+          { label: '微信小程序 AppID', value: config.wechat.appid || '读取项目配置', accent: 'cobalt', mono: true },
+        ] : uniapp ? [
           { label: 'App 名称', value: config.app.name || '—' },
           { label: '版本', value: config.app.versionName || '—', accent: 'cobalt', mono: true },
           {
@@ -187,17 +208,17 @@ export function BuildPage({ build }: Props) {
         ]}
       />
 
-      <Card title="打包目标">
+      {!nativeWechat && <Card title="打包目标">
         <Segmented
           block
           aria-label="打包目标"
           options={targetOptions}
           value={target}
           onChange={(v) => onTarget(v as BuildTarget)}
-          disabled={build.running}
+          disabled={build.running || build.starting}
         />
         <div className="field-hint" style={{ marginTop: 12 }}>
-          {!uniapp
+          {wechat ? '编译生成 mp-weixin 目录，扫码预览和上传使用该目录。' : !uniapp
             ? platform === 'aab' ? 'AAB 用于应用商店分发。' : 'APK 可以直接安装在 Android 设备上。'
             : platform === 'apk'
             ? 'HBuilderX 编译 appResource + Gradle 离线打包，产物为 .apk'
@@ -205,9 +226,9 @@ export function BuildPage({ build }: Props) {
               ? 'HBuilderX 制作应用资源升级包 (publish app --type wgt)，产物为 .wgt，可配合升级中心做热更新'
               : 'HBuilderX 发行 (publish web)，产物复制到 Web 输出目录'}
         </div>
-      </Card>
+      </Card>}
 
-      {(!uniapp || platform === 'apk') && (
+      {(androidTarget || wechat) && (
         <Card
           title="构建前检查"
           extra={
@@ -244,7 +265,7 @@ export function BuildPage({ build }: Props) {
                 <CheckList checks={visibleChecks} />
               ) : (
                 <div className="check-pass">
-                  {uniapp ? '环境、Android 工程与权限配置均通过检查，可以开始打包。' : '项目和构建命令通过检查。'}
+                  {androidTarget && uniapp ? '环境、Android 工程与权限配置均通过检查，可以开始打包。' : '项目和构建命令通过检查。'}
                 </div>
               )}
             </>
@@ -252,7 +273,7 @@ export function BuildPage({ build }: Props) {
         </Card>
       )}
 
-      {(!uniapp || platform === 'apk') ? (
+      {wechat ? <WechatBuildSettings /> : androidTarget ? (
         <Card title="构建类型">
           <Radio.Group
             aria-label="构建模式"
@@ -345,7 +366,7 @@ export function BuildPage({ build }: Props) {
       <div className="build-action">
         <div className="build-action-copy">
           <div className="build-action-title">{build.running ? '构建进行中' : '准备开始构建'}</div>
-          <div className="build-action-desc">
+          <div className="build-action-desc" role={wechat ? 'status' : undefined}>
             {build.running
               ? '日志会实时输出到下方终端，可随时停止。'
               : `${resultText} · 构建前会自动保存当前配置。`}
@@ -360,18 +381,39 @@ export function BuildPage({ build }: Props) {
           onClick={handlePrimary}
           className="build-primary"
         >
-          {build.running ? '停止构建' : '一键打包'}
+          {build.running ? '停止构建' : wechat ? '编译小程序' : '一键打包'}
         </Button>
       </div>
 
       <div className="build-secondary">
-        <Button icon={<FolderOpenOutlined />} onClick={handleOpenOutput}>
+        {wechat && (
+          <>
+            <Button htmlType="button" disabled={build.running || build.starting} onClick={() => build.start('mp-weixin', 'h5', 'preview')}>
+              生成预览二维码
+            </Button>
+            <Button htmlType="button" disabled={build.running || build.starting} onClick={() => build.start('mp-weixin', 'h5', 'upload')}>
+              上传开发版本
+            </Button>
+          </>
+        )}
+        <Button icon={<FolderOpenOutlined />} onClick={handleOpenOutput} disabled={wechat && !wechatArtifact}>
           打开输出目录
         </Button>
         <Button icon={<DeleteOutlined />} onClick={build.clearLog} disabled={build.lines.length === 0}>
           清空日志
         </Button>
       </div>
+
+      {preview && (
+        <Card title="微信扫码预览">
+          <img
+            src={`/api/wechat/preview?receipt=${encodeURIComponent(preview)}`}
+            width={210}
+            height={210}
+            alt="微信小程序预览二维码"
+          />
+        </Card>
+      )}
 
       <LogConsole
         lines={build.lines}
