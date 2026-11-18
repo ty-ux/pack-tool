@@ -421,6 +421,8 @@ export function BuildPage({ build }: Props) {
         onFollowChange={build.setFollow}
         running={build.running}
         phase={build.phase}
+        emptyText={wechat ? '等待小程序任务' : undefined}
+        emptyDesc={wechat ? '编译、预览和上传的日志会实时显示在这里。' : undefined}
       />
 
       <p className="build-note">

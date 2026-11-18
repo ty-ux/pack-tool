@@ -129,9 +129,13 @@ def list_apps() -> list[dict]:
     return items
 
 
-def load_active_config() -> dict:
-    app = _read_app(active_id())
+def load_app_config(app_id: str) -> dict:
+    app = _read_app(app_id)
     return app["config"] if app else copy.deepcopy(DEFAULT_CONFIG)
+
+
+def load_active_config() -> dict:
+    return load_app_config(active_id())
 
 
 def save_active_config(cfg: dict) -> dict:

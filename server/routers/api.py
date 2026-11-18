@@ -301,7 +301,8 @@ def get_logs():
 
 @router.post("/build")
 def start_build(body: BuildBody):
-    cfg = config_mod.load_config()
+    profile = apps_mod.active_id()
+    cfg = apps_mod.load_app_config(profile)
 
     if cfg["projectType"] == NATIVE_TYPE:
         formats = (WECHAT_PLATFORM,)
@@ -330,7 +331,7 @@ def start_build(body: BuildBody):
     if build_type not in ("debug", "release"):
         build_type = "debug"
 
-    ok, msg = build_manager.start(platform, web_type, build_type, body.action)
+    ok, msg = build_manager.start(platform, web_type, build_type, action=body.action, profile=profile, cfg=cfg)
     if not ok:
         raise HTTPException(400, msg)
     return {"ok": True, "message": msg}

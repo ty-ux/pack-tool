@@ -49,7 +49,7 @@ export function WechatBuildSettings() {
         />
       </Field>
       <p className="field-hint">
-        使用微信 CI 需在本机执行 <code>npm install -g miniprogram-ci</code>。原生小程序编译、扫码预览和上传均需配置 AppID 和密钥。启用 IP 白名单时，请在微信公众平台放行本机出口 IP。
+        使用微信 CI 需通过 <code>npm install -g miniprogram-ci</code> 安装并能连接微信服务。原生小程序编译、扫码预览和上传均需配置 AppID 和密钥。启用 IP 白名单时，请放行本机出口 IP。
       </p>
     </Card>
   )

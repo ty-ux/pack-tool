@@ -43,7 +43,7 @@
 
 1. 在「应用信息」选择工程类型。原生小程序在「路径配置」选择含 `project.config.json` 的目录，支持配置文件里的 `miniprogramRoot`。uni-app 在「打包构建」选择「微信小程序」目标。
 2. uni-app 点击「编译小程序」生成产物。CLI 工程先安装项目依赖，产物默认在 `dist/build/mp-weixin`。HBuilderX 工程启动 HBuilderX 并导入项目，产物默认在 `unpackage/dist/build/mp-weixin`。预览和上传使用上次编译产物，源码修改后请重新编译。
-3. 通过 `npm install -g miniprogram-ci` 安装[微信官方 CI](https://github.com/wechat-miniprogram/miniprogram-ci-dist)，也可以把它装在项目中。原生小程序通过它编译 ZIP，两个工程类型均可生成预览二维码和上传开发版本。
+3. 通过 `npm install -g miniprogram-ci` 安装[微信官方 CI](https://github.com/wechat-miniprogram/miniprogram-ci-dist)，也可以把它装在项目中。原生小程序编译 ZIP、扫码预览和上传需要连接微信服务。
 4. 在「打包构建」选择微信公众平台下载的代码上传密钥。密钥存放在项目目录之外，每个 PackTool 应用独立保存文件路径。AppID 留空时读取 `project.config.json`。启用 IP 白名单时需放行本机出口 IP。
 5. 「生成预览二维码」可直接在 PackTool 中扫码。「上传开发版本」使用填写的版本号和说明。提审和正式发布在微信公众平台操作。
 

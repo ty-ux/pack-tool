@@ -5,7 +5,7 @@ import re
 import subprocess
 import threading
 
-from . import apps, config as config_mod
+from . import config as config_mod
 from .adb import find_adb
 from . import history as history_mod
 from . import packages as packages_mod
@@ -49,7 +49,9 @@ class BuildManager:
             return dict(self._current) if self._current else None
 
     # ---------- 启动 ----------
-    def start(self, platform: str, web_type: str, build_type: str, action: str = "compile") -> tuple[bool, str]:
+    def start(
+        self, platform: str, web_type: str, build_type: str, *, action: str, profile: str, cfg: dict,
+    ) -> tuple[bool, str]:
         with self._lock:
             if self._running:
                 return False, "已有打包任务在运行中"
@@ -59,11 +61,10 @@ class BuildManager:
             self._idle.clear()
 
         try:
-            cfg = config_mod.load_config()
             plan = None
             env = None
             if platform == WECHAT_PLATFORM:
-                plan = prepare_wechat_build(cfg, action, apps.active_id())
+                plan = prepare_wechat_build(cfg, action, profile)
                 cmd, target_desc, env = plan.command, plan.description, plan.env
             elif cfg["projectType"] in PROJECT_LABELS:
                 plan = prepare_project_build(cfg, platform, build_type)
