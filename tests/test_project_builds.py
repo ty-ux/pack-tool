@@ -6,6 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from server.config import DEFAULT_CONFIG
+from server.local_tools import executable_name
 from server.project_builds import prepare_project_build
 
 
@@ -101,6 +102,26 @@ class ProjectBuildTest(unittest.TestCase):
         self.write("gradlew.bat" if os.name == "nt" else "gradlew")
         with self.assertRaisesRegex(ValueError, "Gradle Wrapper"):
             prepare_project_build(self.config, "apk", "debug")
+
+    def test_selected_sdk_and_node_apply_only_to_the_build_process(self):
+        self.config["projectType"] = "react-native"
+        self.write("package.json", "{}")
+        self.write("android/gradlew.bat" if os.name == "nt" else "android/gradlew")
+        sdk = self.project / "SDK"
+        (sdk / "platforms").mkdir(parents=True)
+        node = self.write(f"Node/{executable_name('node')}").parent
+        self.config["paths"].update(androidSdk=str(sdk), nodeDir=str(node))
+        original_env = os.environ.copy()
+
+        plan = prepare_project_build(self.config, "apk", "release")
+
+        self.assertEqual(plan.env["ANDROID_HOME"], str(sdk))
+        self.assertEqual(plan.env["ANDROID_SDK_ROOT"], str(sdk))
+        self.assertEqual(plan.env["PATH"].split(os.pathsep)[0], str(node))
+        self.assertEqual(os.environ, original_env)
+        self.config["paths"]["androidSdk"] = str(self.project / "missing")
+        with self.assertRaisesRegex(ValueError, "Android SDK"):
+            prepare_project_build(self.config, "apk", "release")
 
     def test_rejects_an_invalid_project_or_task(self):
         self.config["projectType"] = "flutter"

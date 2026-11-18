@@ -8,6 +8,8 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
+from .local_tools import android_sdk_environment, executable_name
+
 
 ANDROID_FORMATS = ("apk", "aab")
 PROJECT_LABELS = {"android": "原生 Android", "flutter": "Flutter", "react-native": "React Native"}
@@ -97,7 +99,9 @@ def prepare_project_build(cfg: dict, platform: str, build_type: str) -> ProjectB
     if not raw_project or not project.is_dir():
         raise ValueError("请选择存在的项目根目录")
 
+    project_type = cfg["projectType"]
     env = os.environ.copy()
+    env.update(android_sdk_environment(paths))
     java_home = str(paths.get("javaHome") or "").strip()
     if java_home:
         jdk = Path(java_home).expanduser().resolve()
@@ -105,13 +109,19 @@ def prepare_project_build(cfg: dict, platform: str, build_type: str) -> ProjectB
             raise ValueError(f"JDK 路径下找不到 Java：{jdk}")
         env["JAVA_HOME"] = str(jdk)
 
+    node_dir = str(paths.get("nodeDir") or "").strip()
+    if project_type == "react-native" and node_dir:
+        node = Path(node_dir).expanduser().resolve()
+        if not (node / executable_name("node")).is_file():
+            raise ValueError(f"Node.js 目录下找不到 {executable_name('node')}：{node}")
+        env["PATH"] = os.pathsep.join(filter(None, (str(node), env.get("PATH"))))
+
     settings = cfg["projectBuild"]
     flavor = str(settings.get("flavor") or "").strip()
     if flavor and not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", flavor):
         raise ValueError("Flavor 必须以字母开头，仅包含字母、数字或下划线")
     mode = build_type.capitalize()
     variant = flavor + mode if flavor else build_type
-    project_type = cfg["projectType"]
     working_dir = project
     if project_type == "flutter":
         if not (project / "pubspec.yaml").is_file() or not (project / "android").is_dir():

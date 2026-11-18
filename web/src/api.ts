@@ -8,6 +8,7 @@ import type {
   HistoryDetailPayload,
   HistoryListPayload,
   HistoryLogPayload,
+  LocalTools,
   LogPayload,
   PackageDeletePayload,
   PackagesPayload,
@@ -66,6 +67,8 @@ export const activateApp = (id: string) => api.post<AppsPayload>('/api/apps/acti
 export const deleteApp = (id: string) =>
   request<AppsPayload>(`/api/apps/${encodeURIComponent(id)}`, { method: 'DELETE' })
 export const getPermissions = () => api.get<{ ok: boolean; permissions: Permission[] }>('/api/permissions')
+export const getLocalTools = (signal: AbortSignal) =>
+  request<{ ok: boolean; tools: LocalTools }>('/api/local-tools', { signal, cache: 'no-store' })
 export const getPackages = () => api.get<PackagesPayload>('/api/packages')
 export const savePackages = (packages: { id: string; enabled: boolean }[]) =>
   api.post<PackagesPayload>('/api/packages', { packages })

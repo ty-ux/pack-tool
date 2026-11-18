@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { App, Button, Input, Space } from 'antd'
+import { App, Button, Input, Select, Space } from 'antd'
 import { FolderOpenOutlined } from '@ant-design/icons'
 import { browse } from '../api'
+import type { LocalToolCandidate } from '../types'
 
 interface Props {
   id?: string
@@ -14,6 +15,7 @@ interface Props {
   fileFilter?: string
   mono?: boolean
   browseLabel?: string
+  suggestions?: { tool: string; paths: LocalToolCandidate[] }
   /** 额外一个选择按钮，用于既支持文件又支持目录的输入项 */
   extraBrowse?: { kind: 'dir' | 'file'; label: string; title?: string }
 }
@@ -30,6 +32,7 @@ export function BrowseInput({
   fileFilter,
   mono = true,
   browseLabel = '浏览',
+  suggestions,
   extraBrowse,
 }: Props) {
   const { message } = App.useApp()
@@ -59,8 +62,27 @@ export function BrowseInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className={mono ? 'mono-input' : undefined}
+        spellCheck={false}
         allowClear
       />
+      {suggestions && suggestions.paths.length > 0 && (
+        <Select
+          aria-label={`本机路径 · ${suggestions.tool}`}
+          style={{ width: 108, flexShrink: 0 }}
+          value={suggestions.paths.some(({ path }) => path === value) ? value : null}
+          placeholder="本机路径"
+          labelRender={() => '本机路径'}
+          popupMatchSelectWidth={false}
+          onChange={onChange}
+          options={suggestions.paths.map(({ path, source }) => ({ value: path, label: path, source }))}
+          optionRender={({ data }) => (
+            <div style={{ maxWidth: 'min(480px, 80vw)', overflowWrap: 'anywhere' }}>
+              <div className="mono-input">{data.value}</div>
+              <div className="field-hint">{data.source}</div>
+            </div>
+          )}
+        />
+      )}
       <Button icon={<FolderOpenOutlined />} onClick={() => pick(kind, title)} loading={busy}>
         {browseLabel}
       </Button>

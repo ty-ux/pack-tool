@@ -1,9 +1,11 @@
-import { Card } from 'antd'
-import { InfoCircleOutlined } from '@ant-design/icons'
+import { useEffect, useState } from 'react'
+import { Button, Card } from 'antd'
+import { InfoCircleOutlined, ReloadOutlined } from '@ant-design/icons'
+import { getLocalTools } from '../api'
 import { useConfig } from '../store/config'
 import { BrowseInput } from '../components/BrowseInput'
 import { Field } from '../components/Field'
-import type { ProjectType } from '../types'
+import type { LocalTools, ProjectType } from '../types'
 
 const PROJECT_DIRECTORY_HINTS: Record<ProjectType, string> = {
   uniapp: '需包含 manifest.json',
@@ -14,22 +16,65 @@ const PROJECT_DIRECTORY_HINTS: Record<ProjectType, string> = {
 
 export function PathsPage() {
   const { config, setField } = useConfig()
+  const [tools, setTools] = useState<LocalTools | null>(null)
+  const [scan, setScan] = useState(0)
+  const [scanning, setScanning] = useState(true)
+  const [scanError, setScanError] = useState(false)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setScanning(true)
+    setScanError(false)
+    getLocalTools(controller.signal)
+      .then(({ tools }) => {
+        if (!controller.signal.aborted) setTools(tools)
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setScanError(true)
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setScanning(false)
+      })
+    return () => controller.abort()
+  }, [scan])
+
   if (!config) return null
   const p = config.paths
   const uniapp = config.projectType === 'uniapp'
   const flutter = config.projectType === 'flutter'
+  const reactNative = config.projectType === 'react-native'
+  const androidBuild = !uniapp || config.build.platform === 'apk'
 
   const set = (key: keyof typeof p) => (value: string) => setField(['paths', key], value)
+  const suggestions = (key: keyof LocalTools, tool: string) => ({ tool, paths: tools?.[key] ?? [] })
+  const visibleTools: (keyof LocalTools)[] = ['javaHome']
+  if (androidBuild) visibleTools.push('androidSdk')
+  if (uniapp) visibleTools.push('hbuilderxCli', 'adb')
+  if (flutter) visibleTools.push('flutterCli')
+  if (reactNative) visibleTools.push('nodeDir')
+  const found = visibleTools.reduce((count, key) => count + (tools?.[key].length ?? 0), 0)
+  const scanStatus = scanning
+    ? '正在扫描本机工具…'
+    : scanError
+      ? '扫描失败，可重试或手动填写路径。'
+      : found > 0 ? `找到 ${found} 个可选路径` : '未找到可选路径，可手动输入或浏览。'
 
   return (
     <div className="card-grid">
       <Card title="工具与工程">
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+          <Button htmlType="button" icon={<ReloadOutlined />} loading={scanning} onClick={() => setScan((n) => n + 1)}>
+            扫描本机环境
+          </Button>
+          <span className="field-hint" role="status">{scanStatus}</span>
+        </div>
         {uniapp && <Field label="HBuilderX CLI 路径" required hint="HBuilderX 安装目录下的 cli.exe，用于编译前端资源">
           <BrowseInput
             value={p.hbuilderxCli}
             onChange={set('hbuilderxCli')}
             kind="file"
             placeholder="C:\Tools\HBuilderX\cli.exe"
+            suggestions={suggestions('hbuilderxCli', 'HBuilderX CLI')}
           />
         </Field>}
         <Field label={uniapp ? 'uni-app 项目目录' : '项目根目录'} required hint={PROJECT_DIRECTORY_HINTS[config.projectType]}>
@@ -46,6 +91,7 @@ export function PathsPage() {
             onChange={set('flutterCli')}
             kind="file"
             placeholder="C:\Tools\flutter\bin\flutter.bat"
+            suggestions={suggestions('flutterCli', 'Flutter CLI')}
           />
         </Field>}
         {uniapp && <Field label="离线打包工程目录" required={config.build.platform === 'apk'} hint="仅 APK 需要。请选择包含 simpleDemo 的 HBuilder-Integrate-AS 根目录">
@@ -62,14 +108,34 @@ export function PathsPage() {
             onChange={set('javaHome')}
             kind="dir"
             placeholder="C:\Java\jdk-17"
+            suggestions={suggestions('javaHome', 'JDK')}
           />
         </Field>
+        {androidBuild && <Field label="Android SDK 目录" hint="可选，为构建设置 ANDROID_HOME。项目的 sdk.dir 或 Flutter 的 Android SDK 设置可能优先">
+          <BrowseInput
+            value={p.androidSdk}
+            onChange={set('androidSdk')}
+            kind="dir"
+            placeholder="C:\Android\Sdk"
+            suggestions={suggestions('androidSdk', 'Android SDK')}
+          />
+        </Field>}
+        {reactNative && <Field label="Node.js 目录" hint="可选。选择包含 node.exe 的目录，留空时使用 PATH 中的 Node.js">
+          <BrowseInput
+            value={p.nodeDir}
+            onChange={set('nodeDir')}
+            kind="dir"
+            placeholder="C:\Program Files\nodejs"
+            suggestions={suggestions('nodeDir', 'Node.js')}
+          />
+        </Field>}
         {uniapp && <Field label="adb 路径" hint="可选，用于构建后安装与设备列表">
           <BrowseInput
             value={p.adb}
             onChange={set('adb')}
             kind="file"
             placeholder="C:\Android\Sdk\platform-tools\adb.exe"
+            suggestions={suggestions('adb', 'adb')}
           />
         </Field>}
       </Card>

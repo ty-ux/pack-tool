@@ -31,6 +31,7 @@
 - **构建流水线**：实时显示当前阶段和构建日志。
 - **构建前检查**：检查项目目录和构建命令。uni-app 还会扫描应用配置、签名和权限。
 - **多应用配置**：每个应用独立保存工程类型、路径和构建选项，可以从侧边栏切换。
+- **本机环境扫描**：从环境变量、`PATH` 和常见安装位置查找 JDK、Android SDK、Flutter CLI、adb、HBuilderX CLI、Node.js。在路径配置中可从下拉菜单选用，也可输入路径或浏览文件与文件夹。
 - **构建历史**：每次构建自动落库（SQLite），记录时间/目标/结果/耗时/产物路径/完整配置快照/归档日志，可随时回看；默认保留最近 100 条，可手动清空
 - **真实"停止构建"**：一键杀停整个构建进程树（powershell → gradle → java），不残留后台任务
 - **产物目录**：原生 Android、Flutter 和 React Native 默认保留在项目构建目录，也可以指定导出目录。uni-app 默认将 APK 保留在离线工程，WGT 生成在 `output/`，Web/H5 生成在 `output/build/`。
@@ -83,6 +84,12 @@ pack-tool\
 
 应用配置、依赖包、日志、历史数据库和默认 Web/WGT 产物保存在 `%APPDATA%\PackTool\workspace`。更新时解压新版即可继续使用这些数据。依赖包放入该目录下的 `packages`，或在「依赖包」页上传。如果以前从源码运行，可以在桌面版退出时将原目录的 `config` 和 `packages` 复制到桌面版的数据目录。
 
+### 选择本机工具
+
+1. 打开「路径配置」，PackTool 会自动扫描。安装工具或调整环境变量后，也可点击「扫描本机环境」刷新候选路径。
+2. 点击对应字段的「本机路径」，从候选项中选择需要的安装位置。字段仍支持直接输入路径或通过「浏览」选择。
+3. 保存本应用的路径配置。选择的 Android SDK 会为构建子进程设置 `ANDROID_HOME` 和 `ANDROID_SDK_ROOT`，选择的 Node.js 会优先加入 React Native 构建的 `PATH`。项目 `local.properties` 的 `sdk.dir` 或 Flutter 自己保存的 Android SDK 配置可能优先生效。扫描和选择路径都不会修改系统环境变量。
+
 ### 从源码双击启动
 
 此方式需要 Python 3.10+、Node.js LTS。
@@ -128,7 +135,7 @@ ZIP 生成在 `desktop/out/PackTool-win-x64.zip`。GitHub Actions 在 PR 上构�
 2. 在「路径配置」选择项目根目录。
    - 原生 Android 项目应包含 `gradlew.bat`。
    - Flutter 项目应包含 `pubspec.yaml` 和 `android/`。Flutter CLI 可从 `PATH` 查找，也可选择 `bin/flutter.bat`。
-   - React Native 项目应包含 `package.json` 和 `android/gradlew.bat`。用项目指定的包管理器安装依赖，确保启动 PackTool 时能从 `PATH` 找到 Node.js。
+   - React Native 项目应包含 `package.json` 和 `android/gradlew.bat`。用项目指定的包管理器安装依赖，在「路径配置」中选择 Node.js 目录，或从 `PATH` 使用 Node.js。
 3. 在「打包构建」选择 APK 或 AAB，以及 Debug 或 Release。原生 Android 的模块默认是 `app`，可以改成实际模块名。项目配置了 Flavor 时，填写相应名称。
 4. 运行构建前检查，再点「一键打包」。设置了输出目录时，PackTool 会把产物复制过去。留空时保存在工程的默认输出目录，可以从构建历史定位。
 

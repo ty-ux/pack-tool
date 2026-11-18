@@ -1,4 +1,11 @@
 export type ProjectType = 'uniapp' | 'android' | 'flutter' | 'react-native'
+
+export interface LocalToolCandidate {
+  path: string
+  source: string
+}
+
+export type LocalTools = Record<'javaHome' | 'androidSdk' | 'flutterCli' | 'adb' | 'hbuilderxCli' | 'nodeDir', LocalToolCandidate[]>
 export type BuildPlatform = 'apk' | 'aab' | 'web' | 'wgt'
 
 /** 与后端 DEFAULT_CONFIG 结构一一对应 */
@@ -41,6 +48,8 @@ export interface AppConfig {
     projectDir: string
     integrateDir: string
     javaHome: string
+    androidSdk: string
+    nodeDir: string
     adb: string
     outputDir: string
     webOutputDir: string
