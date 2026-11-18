@@ -128,7 +128,7 @@ async function openWindow() {
   if (!ready) throw new Error('React, application configuration or build history did not load')
   const typedApps = await contents.executeJavaScript(`
     (async () => {
-      for (const projectType of ['android', 'flutter']) {
+      for (const projectType of ['android', 'flutter', 'react-native']) {
         const app = await fetch('/api/apps', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -142,7 +142,7 @@ async function openWindow() {
       return true
     })()
   `)
-  if (!typedApps) throw new Error('Android and Flutter profiles did not load their build checks')
+  if (!typedApps) throw new Error('Project profiles did not load their build checks')
   app.quit()
 }
 

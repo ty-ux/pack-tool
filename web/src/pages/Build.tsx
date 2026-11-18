@@ -269,7 +269,7 @@ export function BuildPage({ build }: Props) {
           {!uniapp && (
             <div style={{ marginTop: 16 }}>
               <FieldRow>
-                {config.projectType === 'android' && (
+                {config.projectType !== 'flutter' && (
                   <Field label="Gradle 模块" hint="默认 app。嵌套模块使用冒号分隔，如 feature:app">
                     <Input
                       value={config.projectBuild.gradleModule}
@@ -292,7 +292,9 @@ export function BuildPage({ build }: Props) {
           )}
           <div className="field-hint" style={{ marginTop: 12 }}>
             {config.build.buildType === 'debug'
-              ? 'Debug 便于调试，体积较大，适合开发联调。'
+              ? config.projectType === 'react-native'
+                ? 'React Native 的 Debug 包通常需要连接 Metro 开发服务器。'
+                : 'Debug 便于调试，体积较大，适合开发联调。'
               : uniapp ? 'Release 为发布包（使用 keystore 签名），适合交付上线。' : 'Release 沿用项目的发行签名配置。'}
           </div>
         </Card>

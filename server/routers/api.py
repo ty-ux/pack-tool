@@ -29,7 +29,7 @@ class SaveConfigBody(BaseModel):
 
 class CreateAppBody(BaseModel):
     name: Optional[str] = ""
-    projectType: Literal["uniapp", "android", "flutter"] | None = None
+    projectType: Literal["uniapp", "android", "flutter", "react-native"] | None = None
 
 
 class ActivateAppBody(BaseModel):

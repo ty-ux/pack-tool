@@ -8,7 +8,7 @@ import uuid
 from .config import DEFAULT_CONFIG, deep_merge
 from .paths import ACTIVE_APP_PATH, APPS_DIR, CONFIG_PATH
 
-# 新建应用沿用的机器级路径。原生 Android 和 Flutter 的输出目录按项目设置。
+# 新建应用沿用的机器级路径。输出目录通常按项目设置。
 INHERITED_PATHS = ("hbuilderxCli", "integrateDir", "javaHome", "adb", "flutterCli")
 
 _ensure_lock = threading.Lock()

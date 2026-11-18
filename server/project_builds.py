@@ -10,12 +10,12 @@ from pathlib import Path
 
 
 ANDROID_FORMATS = ("apk", "aab")
-PROJECT_LABELS = {"android": "原生 Android", "flutter": "Flutter"}
+PROJECT_LABELS = {"android": "原生 Android", "flutter": "Flutter", "react-native": "React Native"}
 
 
 @dataclass
 class ProjectBuild:
-    project: Path
+    working_dir: Path
     executable: Path
     args: list[str]
     env: dict[str, str]
@@ -25,7 +25,7 @@ class ProjectBuild:
     flavor: str
     build_type: str
     platform: str
-    flutter: bool
+    project_type: str
 
     @property
     def command(self) -> list[str]:
@@ -40,10 +40,10 @@ class ProjectBuild:
 
     @property
     def description(self) -> str:
-        return f"{'Flutter' if self.flutter else '原生 Android'} {self.platform.upper()} ({self.variant})"
+        return f"{PROJECT_LABELS[self.project_type]} {self.platform.upper()} ({self.variant})"
 
     def collect(self) -> Path:
-        if self.flutter and self.platform == "apk":
+        if self.project_type == "flutter" and self.platform == "apk":
             suffix = f"{self.flavor.lower()}-" if self.flavor else ""
             artifacts = [self.artifact_root / f"app-{suffix}{self.build_type}.apk"]
         elif self.platform == "aab":
@@ -111,8 +111,9 @@ def prepare_project_build(cfg: dict, platform: str, build_type: str) -> ProjectB
         raise ValueError("Flavor 必须以字母开头，仅包含字母、数字或下划线")
     mode = build_type.capitalize()
     variant = flavor + mode if flavor else build_type
-    flutter = cfg["projectType"] == "flutter"
-    if flutter:
+    project_type = cfg["projectType"]
+    working_dir = project
+    if project_type == "flutter":
         if not (project / "pubspec.yaml").is_file() or not (project / "android").is_dir():
             raise ValueError("Flutter 项目目录应包含 pubspec.yaml 和 android/ 目录")
         cli = str(paths.get("flutterCli") or "").strip() or shutil.which("flutter")
@@ -124,19 +125,26 @@ def prepare_project_build(cfg: dict, platform: str, build_type: str) -> ProjectB
             args += ["--flavor", flavor]
         artifact_root = project / "build/app/outputs" / ("flutter-apk" if platform == "apk" else "bundle")
     else:
-        executable = project / ("gradlew.bat" if os.name == "nt" else "gradlew")
+        if project_type == "react-native":
+            if not (project / "package.json").is_file() or not (project / "android").is_dir():
+                raise ValueError("React Native 项目根目录应包含 package.json 和 android/ 目录")
+            working_dir = project / "android"
+        executable = working_dir / ("gradlew.bat" if os.name == "nt" else "gradlew")
         if not executable.is_file():
-            raise ValueError(f"在项目根目录找不到 Gradle Wrapper：{executable.name}")
+            raise ValueError(f"找不到 Gradle Wrapper：{executable}")
         module = str(settings.get("gradleModule") or "app").strip().removeprefix(":")
         if not re.fullmatch(r"[A-Za-z0-9_-]+(?::[A-Za-z0-9_-]+)*", module):
             raise ValueError("Gradle 模块应使用 app 或 feature:app 这样的模块路径")
         task_suffix = flavor[:1].upper() + flavor[1:] + mode
         task = ("assemble" if platform == "apk" else "bundle") + task_suffix
         args = [f":{module}:{task}", "--no-daemon", "--console=plain"]
-        artifact_root = project.joinpath(*module.split(":"), "build", "outputs", "apk" if platform == "apk" else "bundle")
+        if project_type == "react-native" and build_type == "release":
+            # React Native's release bundling requires Gradle to configure its JS tasks.
+            args.append("--no-configure-on-demand")
+        artifact_root = working_dir.joinpath(*module.split(":"), "build", "outputs", "apk" if platform == "apk" else "bundle")
 
     raw_output = str(paths.get("outputDir") or "").strip()
     return ProjectBuild(
-        project, executable, args, env, Path(raw_output).expanduser().resolve() if raw_output else None,
-        artifact_root, variant, flavor, build_type, platform, flutter,
+        working_dir, executable, args, env, Path(raw_output).expanduser().resolve() if raw_output else None,
+        artifact_root, variant, flavor, build_type, platform, project_type,
     )

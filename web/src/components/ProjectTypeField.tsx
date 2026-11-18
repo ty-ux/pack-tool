@@ -6,6 +6,7 @@ export const PROJECT_TYPES: Record<ProjectType, string> = {
   uniapp: 'uni-app',
   android: '原生 Android',
   flutter: 'Flutter',
+  'react-native': 'React Native',
 }
 
 interface Props {

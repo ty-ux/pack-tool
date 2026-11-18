@@ -1,6 +1,6 @@
 # PackTool
 
-> Windows 本地打包控制台。支持原生 Android 和 Flutter 的 APK、AAB 构建，以及 uni-app 的离线 APK、Web/H5 和 WGT。
+> Windows 本地打包控制台。支持原生 Android、Flutter 和 React Native 的 APK、AAB 构建，以及 uni-app 的离线 APK、Web/H5 和 WGT。
 >
 > 后端：Python FastAPI（本地服务） · 前端：React 18 + TypeScript + Ant Design（Vite 构建）
 
@@ -10,12 +10,13 @@
 | --- | --- | --- |
 | 原生 Android | APK、AAB | 工程自带的 Gradle Wrapper、兼容的 JDK 和 Android SDK |
 | Flutter | APK、AAB | Flutter SDK、Android SDK 和 Android SDK Command-line Tools |
+| React Native | APK、AAB | 工程的 JavaScript 依赖、Node.js、`android/` 中的 Gradle Wrapper、兼容的 JDK 和 Android SDK |
 | uni-app | APK、Web/H5、WGT | HBuilderX。离线 APK 额外需要 Android 离线工程、JDK 和 Android SDK |
 
 ## 功能
 
 - **图形界面**：在独立桌面窗口或浏览器中可视化配置
-- **原生 Android 与 Flutter**：选择 Debug 或 Release 和可选的 Flavor，沿用工程的包名、版本和签名配置。原生 Android 可以指定 Gradle 模块。
+- **原生 Android、Flutter 与 React Native**：选择 Debug 或 Release 和可选的 Flavor，沿用工程的包名、版本和签名配置。原生 Android 和 React Native 可以指定 Gradle 模块。
 - **uni-app 配置**：
   - App 名称、图标、包名、版本号
   - 权限（勾选：相机/扫码/联网/存储/安装APK 等 17 项）
@@ -32,7 +33,7 @@
 - **多应用配置**：每个应用独立保存工程类型、路径和构建选项，可以从侧边栏切换。
 - **构建历史**：每次构建自动落库（SQLite），记录时间/目标/结果/耗时/产物路径/完整配置快照/归档日志，可随时回看；默认保留最近 100 条，可手动清空
 - **真实"停止构建"**：一键杀停整个构建进程树（powershell → gradle → java），不残留后台任务
-- **产物目录**：原生 Android 和 Flutter 默认保留在项目构建目录，也可以指定导出目录。uni-app 默认将 APK 保留在离线工程，WGT 生成在 `output/`，Web/H5 生成在 `output/build/`。
+- **产物目录**：原生 Android、Flutter 和 React Native 默认保留在项目构建目录，也可以指定导出目录。uni-app 默认将 APK 保留在离线工程，WGT 生成在 `output/`，Web/H5 生成在 `output/build/`。
 - **记住配置**：每个应用的配置各存一份（`config\apps`），下次打开自动恢复并停留在上次使用的应用
 
 ## 目录结构
@@ -121,14 +122,19 @@ npm --prefix desktop run test:windows
 
 ZIP 生成在 `desktop/out/PackTool-win-x64.zip`。GitHub Actions 在 PR 上构建并验证 ZIP。发布新版时，先在功能分支更新 `desktop/package.json` 和锁文件的版本，通过 PR 合并后，将对应的 `vX.Y.Z` 标签推送到 GitHub。构建通过后，工作流会把 ZIP 发布到 Releases。
 
-### 打包原生 Android 或 Flutter
+### 打包原生 Android、Flutter 或 React Native
 
-1. 新建应用时选择「原生 Android」或「Flutter」。已有应用可以在「应用信息」修改类型。
-2. 在「路径配置」选择项目根目录。原生 Android 目录应包含 `gradlew.bat`，Flutter 目录应包含 `pubspec.yaml` 和 `android/`。Flutter CLI 可从 `PATH` 查找，也可选择 `bin/flutter.bat`。
+1. 新建应用时选择「原生 Android」「Flutter」或「React Native」。已有应用可以在「应用信息」修改类型。
+2. 在「路径配置」选择项目根目录。
+   - 原生 Android 项目应包含 `gradlew.bat`。
+   - Flutter 项目应包含 `pubspec.yaml` 和 `android/`。Flutter CLI 可从 `PATH` 查找，也可选择 `bin/flutter.bat`。
+   - React Native 项目应包含 `package.json` 和 `android/gradlew.bat`。用项目指定的包管理器安装依赖，确保启动 PackTool 时能从 `PATH` 找到 Node.js。
 3. 在「打包构建」选择 APK 或 AAB，以及 Debug 或 Release。原生 Android 的模块默认是 `app`，可以改成实际模块名。项目配置了 Flavor 时，填写相应名称。
 4. 运行构建前检查，再点「一键打包」。设置了输出目录时，PackTool 会把产物复制过去。留空时保存在工程的默认输出目录，可以从构建历史定位。
 
 Release 使用项目自己的签名配置。在 Android 工程的 Gradle 配置中绑定生产密钥。Flutter 项目的 Android 签名配置在 `android/` 下。密钥文件和口令保存在本机。Flutter 的 Release AAB 构建还会调用 Android SDK Command-line Tools 中的 `apkanalyzer` 检查产物。 [Android 命令行构建](https://developer.android.com/build/building-cmdline?hl=zh-cn) · [Flutter Android 发行](https://docs.flutter.dev/deployment/android)
+
+React Native 使用 `android/` 下的 Gradle 构建。Release 由 React Native Gradle 插件打包 JavaScript 和资源，通常可独立运行。Debug 包通常需要连接 Metro。使用 Expo 的项目可以在生成 Android 原生工程后走同一流程。 [React Native Android 发行](https://reactnative.dev/docs/signed-apk-android) · [React Native Gradle 插件](https://reactnative.dev/docs/react-native-gradle-plugin)
 
 ### 打包 uni-app
 1. 在 **打包构建** 页选择目标：Android APK、网站-PC Web、手机 H5 或 WGT 热更新包。
@@ -238,7 +244,7 @@ A: 包名修改后是全新应用，需先卸载旧版。且后端若绑定了�
 A: 点 **选择图标** 选文件，或点 **选择目录** 选按 dpi 组织的目录（例如包含 `drawable-xxhdpi\icon.png`）。构建时会按密度写入离线工程，缺少的密度用目录里分辨率最高的一张补齐。首次覆盖前原图标会备份到 `simpleDemo\.pack-tool\icon-backup\`。未选择图标时沿用离线工程的图标。若桌面图标没变，请确认 `AndroidManifest.xml` 的 `android:icon` 指向 `@drawable/icon`。
 
 **Q: 怎么管理多个 App 的打包配置？**
-A: 侧边栏顶部的「当前应用」可以切换、新建、删除应用。每个应用在 `config/apps/` 下各存一份配置。新建应用会沿用已填写的工具路径。项目目录需要重新选择，原生 Android 和 Flutter 的导出目录也按应用设置。切换应用时会保存当前改动。删除应用时会保留构建历史，至少需要保留一个应用。
+A: 侧边栏顶部的「当前应用」可以切换、新建、删除应用。每个应用在 `config/apps/` 下各存一份配置。新建应用会沿用已填写的工具路径。项目目录需要重新选择，原生 Android、Flutter 和 React Native 的导出目录也按应用设置。切换应用时会保存当前改动。删除应用时会保留构建历史，至少需要保留一个应用。
 
 **Q: 权限改了不生效？**
 A: 权限写入的是离线工程的 `AndroidManifest.xml`，改后必须重新打包才生效（界面点"一键打包"即可）。

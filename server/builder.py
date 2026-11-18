@@ -184,7 +184,7 @@ class BuildManager:
                         self._proc = subprocess.Popen(
                             cmd, stdout=f, stderr=subprocess.STDOUT,
                             creationflags=CREATE_NO_WINDOW if os.name == "nt" else 0,
-                            cwd=plan.project if plan else None,
+                            cwd=plan.working_dir if plan else None,
                             env=plan.env if plan else None,
                         )
                     proc = self._proc
