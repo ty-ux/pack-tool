@@ -42,7 +42,7 @@ function skeleton(platform: 'apk' | 'web' | 'wgt'): PipelineStep[] {
 
 /** 按字符串 platform（可能为空/旧值）取骨架，非法值回退到 web */
 export function skeletonFor(platform?: string | null, projectType?: ProjectType): PipelineStep[] {
-  if (platform === 'aab' || projectType === 'android' || projectType === 'flutter') {
+  if (platform === 'aab' || (projectType && projectType !== 'uniapp')) {
     return PROJECT_SKELETON.map((s) => ({ ...s }))
   }
   if (platform === 'apk') return skeleton('apk')

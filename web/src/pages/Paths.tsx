@@ -3,6 +3,14 @@ import { InfoCircleOutlined } from '@ant-design/icons'
 import { useConfig } from '../store/config'
 import { BrowseInput } from '../components/BrowseInput'
 import { Field } from '../components/Field'
+import type { ProjectType } from '../types'
+
+const PROJECT_DIRECTORY_HINTS: Record<ProjectType, string> = {
+  uniapp: '需包含 manifest.json',
+  android: '需包含 Gradle Wrapper（gradlew.bat）',
+  flutter: '需包含 pubspec.yaml 和 android/ 目录',
+  'react-native': '请选择包含 package.json 和 android/gradlew.bat 的目录，并先安装项目的 JavaScript 依赖',
+}
 
 export function PathsPage() {
   const { config, setField } = useConfig()
@@ -24,9 +32,7 @@ export function PathsPage() {
             placeholder="C:\Tools\HBuilderX\cli.exe"
           />
         </Field>}
-        <Field label={uniapp ? 'uni-app 项目目录' : '项目根目录'} required hint={
-          uniapp ? '需包含 manifest.json' : flutter ? '需包含 pubspec.yaml 和 android/ 目录' : '需包含 Gradle Wrapper（gradlew.bat）'
-        }>
+        <Field label={uniapp ? 'uni-app 项目目录' : '项目根目录'} required hint={PROJECT_DIRECTORY_HINTS[config.projectType]}>
           <BrowseInput
             value={p.projectDir}
             onChange={set('projectDir')}

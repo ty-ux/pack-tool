@@ -1,4 +1,4 @@
-export type ProjectType = 'uniapp' | 'android' | 'flutter'
+export type ProjectType = 'uniapp' | 'android' | 'flutter' | 'react-native'
 export type BuildPlatform = 'apk' | 'aab' | 'web' | 'wgt'
 
 /** 与后端 DEFAULT_CONFIG 结构一一对应 */

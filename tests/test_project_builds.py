@@ -73,6 +73,35 @@ class ProjectBuildTest(unittest.TestCase):
         bundle_path = self.write("build/app/outputs/bundle/demoRelease/app-demo-release.aab")
         self.assertEqual(bundle.collect(), bundle_path)
 
+    def test_react_native_uses_android_gradle_project(self):
+        self.config["projectType"] = "react-native"
+        self.config["projectBuild"] = {"gradleModule": "mobile", "flavor": "demo"}
+        self.write("package.json", '{"name": "fixture"}')
+        wrapper = self.write("android/gradlew.bat" if os.name == "nt" else "android/gradlew")
+
+        apk = prepare_project_build(self.config, "apk", "debug")
+        self.assertEqual(apk.working_dir, self.project / "android")
+        self.assertEqual(apk.executable, wrapper)
+        self.assertEqual(apk.args[0], ":mobile:assembleDemoDebug")
+        apk_path = self.write("android/mobile/build/outputs/apk/demo/debug/mobile-demo-debug.apk")
+        self.assertEqual(apk.collect(), apk_path)
+
+        bundle = prepare_project_build(self.config, "aab", "release")
+        self.assertEqual(bundle.args[0], ":mobile:bundleDemoRelease")
+        self.assertIn("--no-configure-on-demand", bundle.args)
+        bundle_path = self.write("android/mobile/build/outputs/bundle/demoRelease/mobile-demo-release.aab")
+        self.assertEqual(bundle.collect(), bundle_path)
+
+    def test_react_native_requires_project_root_and_native_wrapper(self):
+        self.config["projectType"] = "react-native"
+        with self.assertRaisesRegex(ValueError, "package.json"):
+            prepare_project_build(self.config, "apk", "debug")
+        self.write("package.json", '{"name": "fixture"}')
+        (self.project / "android").mkdir()
+        self.write("gradlew.bat" if os.name == "nt" else "gradlew")
+        with self.assertRaisesRegex(ValueError, "Gradle Wrapper"):
+            prepare_project_build(self.config, "apk", "debug")
+
     def test_rejects_an_invalid_project_or_task(self):
         self.config["projectType"] = "flutter"
         with self.assertRaisesRegex(ValueError, "pubspec.yaml"):
