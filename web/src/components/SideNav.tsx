@@ -12,6 +12,7 @@ import {
   RocketOutlined,
   SafetyCertificateOutlined,
   KeyOutlined,
+  SettingOutlined,
 } from '@ant-design/icons'
 import type { BuildPhase } from '../hooks/useBuild'
 import type { ProjectType } from '../types'
@@ -45,6 +46,7 @@ const CONFIG_ITEMS: NavItem[] = [
 const BUILD_ITEMS: NavItem[] = [
   { key: 'build', label: '打包构建', icon: <RocketOutlined /> },
   { key: 'history', label: '构建历史', icon: <HistoryOutlined /> },
+  { key: 'data', label: '数据与外观', icon: <SettingOutlined /> },
 ]
 
 const NEW_APP_KEY = '__new__'

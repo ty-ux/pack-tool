@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { App as AntApp, Button, Result, Skeleton } from 'antd'
+import { App as AntApp, Button, Drawer, Dropdown, Result, Skeleton } from 'antd'
 import { ReloadOutlined, SaveOutlined, SyncOutlined } from '@ant-design/icons'
 import { useConfig } from './store/config'
 import { useBuild } from './hooks/useBuild'
@@ -12,6 +12,8 @@ import { InstallPage } from './pages/Install'
 import { BuildPage } from './pages/Build'
 import { BuildHistory } from './components/BuildHistory'
 import { SigningKeysPage } from './pages/SigningKeys'
+import { DataManagementPage } from './pages/DataManagement'
+import { useAppearance, type ColorScheme } from './store/appearance'
 
 interface PageMeta {
   title: string
@@ -19,6 +21,7 @@ interface PageMeta {
 }
 
 const PAGES: Record<string, PageMeta> = {
+  data: { title: '数据与外观', desc: '备份本机数据、导入导出应用配置，并选择适合你的颜色主题。' },
   keys: {
     title: '密钥管理',
     desc: '集中管理 Android 签名文件、别名和密码，供不同应用选择复用。',
@@ -55,14 +58,16 @@ const PAGES: Record<string, PageMeta> = {
 
 export function AppRoot() {
   const { message } = AntApp.useApp()
+  const { scheme, setScheme } = useAppearance()
   const { config, dirty, loading, error, save, reload } = useConfig()
   const build = useBuild()
   const [selectedTab, setTab] = useState('app')
+  const [mobileNav, setMobileNav] = useState(false)
   const isUniApp = !config || config.projectType === 'uniapp'
   const tab = !isUniApp && ['perm', 'packages', 'install'].includes(selectedTab) ? 'app' : selectedTab
   const page = PAGES[tab] ?? PAGES.app
   const navigate = async (next: string) => {
-    if (next === 'keys' && dirty) {
+    if (['keys', 'data'].includes(next) && dirty) {
       const result = await save({ validate: false })
       if (!result.ok) { message.error(result.error || '当前配置保存失败'); return }
     }
@@ -119,11 +124,17 @@ export function AppRoot() {
         />
         <div className="app-main">
           <header className="app-header">
+            <Button className="mobile-navigation" aria-label="打开导航" onClick={() => setMobileNav(true)}>导航</Button>
             <div>
               <h1 className="page-title">{page.title}</h1>
               <p className="page-desc">{tab === 'app' && !isUniApp ? '选择工程类型和应用显示名称。' : page.desc}</p>
             </div>
             <span className="spacer" />
+            <Dropdown menu={{ selectedKeys: [scheme], items: [
+              { key: 'system', label: '跟随系统' }, { key: 'light', label: '明亮模式' }, { key: 'dark', label: '黑暗模式' },
+            ], onClick: ({ key }) => { void setScheme(key as ColorScheme).catch((error) => message.error(error instanceof Error ? error.message : '主题保存失败')) } }}>
+              <Button className="appearance-button" aria-label="选择颜色主题">外观</Button>
+            </Dropdown>
             <span className="header-status" role="status" aria-live="polite">
               {serverState === 'running' && <SyncOutlined spin />}
               {serverState !== 'running' && <span className={`status-dot ${serverState}`} />}
@@ -156,6 +167,7 @@ export function AppRoot() {
                 <>
                   {tab === 'app' && <AppInfoPage onManageKeys={() => { void navigate('keys') }} />}
                   {tab === 'keys' && <SigningKeysPage onGoApp={() => setTab('app')} />}
+                  {tab === 'data' && <DataManagementPage building={build.running} />}
                   {tab === 'perm' && <PermissionsPage />}
                   {tab === 'packages' && <PackagesPage />}
                   {tab === 'path' && <PathsPage />}
@@ -188,6 +200,11 @@ export function AppRoot() {
             </>}
           </footer>
         </div>
+        <Drawer title="PackTool" placement="left" width={280} open={mobileNav} onClose={() => setMobileNav(false)} styles={{ body: { padding: 0 } }}>
+          <SideNav active={tab} onChange={(next) => { setMobileNav(false); void navigate(next) }}
+            permCount={config?.android.permissions.length ?? 0} buildPhase={build.phase}
+            serverText={serverText} serverState={serverState} />
+        </Drawer>
       </div>
     </>
   )

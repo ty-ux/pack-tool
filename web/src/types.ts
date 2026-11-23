@@ -151,6 +151,7 @@ export interface PackageSyncSummary {
 
 export interface PackageSyncPayload {
   ok: boolean
+  error?: string
   results: PackageSyncResult[]
   summary: PackageSyncSummary
 }
