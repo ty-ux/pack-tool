@@ -1,6 +1,7 @@
-// Override signing only for the selected APK build in the offline Android project.
+// Apply the selected signing configuration to the requested Android application module.
 gradle.beforeProject { project ->
-    if (project.path != ':simpleDemo') {
+    if (!System.getenv('PACK_TOOL_SIGNING_FILE') ||
+        project.path != (System.getenv('PACK_TOOL_SIGNING_MODULE') ?: ':simpleDemo')) {
         return
     }
     project.pluginManager.withPlugin('com.android.application') {

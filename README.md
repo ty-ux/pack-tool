@@ -18,6 +18,7 @@
 
 - **图形界面**：在独立桌面窗口或浏览器中可视化配置
 - **原生 Android、Flutter 与 React Native**：选择 Debug 或 Release 和可选的 Flavor，沿用工程的包名、版本和签名配置。原生 Android 和 React Native 可以指定 Gradle 模块。
+- **Flutter 版本与签名**：在「应用信息」填写可选版本号和版本码，构建时传给 Flutter，留空时读取 `pubspec.yaml`。APK 和 AAB 均可选择本机签名文件、别名和密码环境变量。选用签名时使用 PackTool 独立 Gradle 缓存，首次构建需下载依赖，私有仓库的 Gradle 全局设置需配置到该缓存目录。
 - **uni-app 配置**：
   - App 名称、图标、包名、版本号
   - 权限（勾选：相机/扫码/联网/存储/安装APK 等 17 项）

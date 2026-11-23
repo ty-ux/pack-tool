@@ -34,7 +34,7 @@ export interface SaveResult {
 
 export const DEFAULT_CONFIG: AppConfig = {
   projectType: 'uniapp',
-  projectBuild: { gradleModule: 'app', flavor: '' },
+  projectBuild: { gradleModule: 'app', flavor: '', flutterVersionName: '', flutterVersionCode: '' },
   app: { name: '新应用', icon: '', appid: '', versionName: '1.0.0', versionCode: '1' },
   android: { packageName: '', permissions: [] },
   signing: { keystorePath: '', keyAlias: '', storePasswordEnv: 'PACK_TOOL_KEYSTORE_PASSWORD', keyPasswordEnv: '' },

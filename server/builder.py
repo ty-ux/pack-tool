@@ -186,6 +186,8 @@ class BuildManager:
         if isinstance(plan, MiniProgramBuild):
             stage = f"0|project|{plan.description}"
         try:
+            if isinstance(plan, ProjectBuild):
+                plan.prepare()
             # 'a' 追加：头行已在 start 写好，child 通过继承句柄继续写
             with open(BUILD_LOG, "a", encoding="utf-8") as f:
                 if plan:

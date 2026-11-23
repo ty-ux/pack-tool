@@ -4,6 +4,7 @@ import { ClearOutlined, PictureOutlined, AndroidOutlined } from '@ant-design/ico
 import { useConfig } from '../store/config'
 import { BrowseInput } from '../components/BrowseInput'
 import { Field, FieldRow } from '../components/Field'
+import { AndroidSigning } from '../components/AndroidSigning'
 import { ProjectTypeField } from '../components/ProjectTypeField'
 
 const DECODABLE_ICON = /\.(png|jpe?g|bmp|gif|tiff?)$/i
@@ -179,14 +180,31 @@ export function AppInfoPage() {
 
   if (config.projectType !== 'uniapp') {
     return (
-      <Card title="基本信息">
-        {basicFields}
-        <p className="field-hint">
-          {config.projectType === 'wechat-miniprogram'
-            ? '在「路径配置」选择小程序项目，在「打包构建」设置微信 AppID 和代码上传密钥。'
-            : '包名、版本、权限及发行签名使用项目自身的 Android 配置。'}
-        </p>
-      </Card>
+      <div className="card-grid">
+        <Card title="基本信息">
+          {basicFields}
+          {config.projectType === 'flutter' && (
+            <FieldRow>
+              <Field label="版本号" hint="可选，例如 1.2.3。留空时读取 pubspec.yaml">
+                <Input value={config.projectBuild.flutterVersionName}
+                  onChange={(e) => setField(['projectBuild', 'flutterVersionName'], e.target.value)}
+                  autoCapitalize="none" spellCheck={false} />
+              </Field>
+              <Field label="版本码" hint="可选，1 到 2100000000 的整数。留空时读取 pubspec.yaml">
+                <Input value={config.projectBuild.flutterVersionCode} inputMode="numeric"
+                  onChange={(e) => setField(['projectBuild', 'flutterVersionCode'], e.target.value)}
+                  spellCheck={false} />
+              </Field>
+            </FieldRow>
+          )}
+          <p className="field-hint">
+            {config.projectType === 'wechat-miniprogram'
+              ? '在「路径配置」选择小程序项目，在「打包构建」设置微信 AppID 和代码上传密钥。'
+              : config.projectType === 'flutter' ? '包名和权限使用 Flutter 工程配置，版本和签名可在此设置。' : '包名、版本、权限及发行签名使用项目自身的 Android 配置。'}
+          </p>
+        </Card>
+        {config.projectType === 'flutter' && <AndroidSigning />}
+      </div>
     )
   }
 
@@ -242,51 +260,7 @@ export function AppInfoPage() {
         <InstallPreview />
       </Card>
 
-      <Card title="Android 签名">
-        <Field label="签名文件" hint="仅用于当前应用的 APK（Debug 和 Release）。留空时使用离线工程原有的签名配置">
-          <BrowseInput
-            kind="file"
-            title="选择 Android 签名文件"
-            fileFilter="Android 签名文件 (*.jks;*.keystore;*.p12)|*.jks;*.keystore;*.p12|所有文件 (*.*)|*.*"
-            browseLabel="选择签名文件"
-            placeholder="请选择 .jks 或 .keystore 文件"
-            value={config.signing.keystorePath}
-            onChange={(path) => setField(['signing', 'keystorePath'], path)}
-          />
-        </Field>
-        {config.signing.keystorePath.trim() && (
-          <>
-            <Field label="密钥别名" required hint="签名文件创建时填写的 Key Alias">
-              <Input
-                value={config.signing.keyAlias}
-                onChange={(e) => setField(['signing', 'keyAlias'], e.target.value)}
-                autoCapitalize="none"
-                spellCheck={false}
-                aria-required
-              />
-            </Field>
-            <Field label="密钥库密码变量名" required hint="填写本机环境变量的名字，不填密码。每个应用可用不同的变量名">
-              <Input
-                className="mono-input"
-                value={config.signing.storePasswordEnv}
-                onChange={(e) => setField(['signing', 'storePasswordEnv'], e.target.value)}
-                autoCapitalize="none"
-                spellCheck={false}
-                aria-required
-              />
-            </Field>
-            <Field label="密钥密码变量名" hint="密钥密码和密钥库密码相同时留空">
-              <Input
-                className="mono-input"
-                value={config.signing.keyPasswordEnv}
-                onChange={(e) => setField(['signing', 'keyPasswordEnv'], e.target.value)}
-                autoCapitalize="none"
-                spellCheck={false}
-              />
-            </Field>
-          </>
-        )}
-      </Card>
+      <AndroidSigning />
     </div>
   )
 }
