@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .local_tools import android_sdk_environment, executable_name
 from .paths import DATA_ROOT, SCRIPTS_DIR
-from .signing import signing_environment, signing_error
+from .signing import resolve_signing, signing_environment, signing_error
 
 
 ANDROID_FORMATS = ("apk", "aab")
@@ -103,6 +103,7 @@ class ProjectBuild:
 
 
 def prepare_project_build(cfg: dict, platform: str, build_type: str) -> ProjectBuild:
+    cfg = resolve_signing(cfg)
     if platform not in ANDROID_FORMATS or build_type not in ("debug", "release"):
         raise ValueError("请选择有效的 Android 产物和构建模式")
     paths = cfg["paths"]
@@ -182,6 +183,18 @@ def prepare_project_build(cfg: dict, platform: str, build_type: str) -> ProjectB
         task_suffix = flavor[:1].upper() + flavor[1:] + mode
         task = ("assemble" if platform == "apk" else "bundle") + task_suffix
         args = [f":{module}:{task}", "--no-daemon", "--console=plain"]
+        signing = cfg.get("signing") or {}
+        if str(signing.get("keystorePath") or "").strip():
+            if error := signing_error(cfg):
+                raise ValueError(error)
+            args += ["--init-script", str(SCRIPTS_DIR / "android-signing.init.gradle")]
+            env.update({
+                "PACK_TOOL_SIGNING_FILE": signing["keystorePath"].strip(),
+                "PACK_TOOL_SIGNING_ALIAS": signing["keyAlias"].strip(),
+                **signing_environment(cfg),
+                "PACK_TOOL_SIGNING_BUILD_TYPE": build_type,
+                "PACK_TOOL_SIGNING_MODULE": f":{module}",
+            })
         if project_type == "react-native" and build_type == "release":
             # React Native's release bundling requires Gradle to configure its JS tasks.
             args.append("--no-configure-on-demand")

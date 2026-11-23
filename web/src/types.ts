@@ -30,6 +30,7 @@ export interface AppConfig {
     permissions: string[]
   }
   signing: {
+    keyId?: string
     keystorePath: string
     keyAlias: string
     passwordMode: 'local' | 'env'
@@ -76,6 +77,14 @@ export interface AppConfig {
 }
 
 /** 应用档案：每个应用一套打包配置，切换时互不影响 */
+export interface SigningKey {
+  id: string
+  name: string
+  signing: AppConfig['signing']
+  updatedAt: string
+  usedBy: { id: string; name: string }[]
+}
+
 export interface AppProfile {
   id: string
   name: string

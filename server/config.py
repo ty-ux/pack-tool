@@ -89,6 +89,7 @@ DEFAULT_CONFIG = {
         "permissions": ["INTERNET", "ACCESS_NETWORK_STATE", "CAMERA", "WRITE_EXTERNAL_STORAGE", "READ_EXTERNAL_STORAGE", "READ_MEDIA_IMAGES", "REQUEST_INSTALL_PACKAGES", "VIBRATE", "WAKE_LOCK"],
     },
     "signing": {
+        "keyId": "",
         "keystorePath": "",
         "keyAlias": "",
         "passwordMode": "local",
@@ -156,9 +157,9 @@ def save_config(cfg: dict) -> None:
 
 def write_run_config(cfg: dict) -> str:
     """把当前配置深拷贝写到 build_config.json（ps1 读取用），返回路径字符串"""
-    from .signing import redact_config
+    from .signing import redact_config, resolve_signing
 
-    cfg = redact_config(cfg)
+    cfg = redact_config(resolve_signing(cfg))
     if (cfg.get("signing") or {}).get("keystorePath"):
         cfg["signing"]["storePasswordEnv"] = "PACK_TOOL_SIGNING_STORE_PASSWORD"
         cfg["signing"]["keyPasswordEnv"] = "PACK_TOOL_SIGNING_KEY_PASSWORD"

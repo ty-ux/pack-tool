@@ -9,7 +9,7 @@ from . import config as config_mod
 from . import packages as packages_mod
 from .local_tools import android_sdk_environment
 from .project_builds import PROJECT_LABELS, prepare_project_build
-from .signing import signing_error
+from .signing import resolve_signing, signing_error
 from .wechat import NATIVE_TYPE, PLATFORM as WECHAT_PLATFORM, prepare_wechat_build
 
 PACKAGE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$")
@@ -46,10 +46,10 @@ def _project_preflight(cfg: dict) -> dict:
                        "detail": f"{plan.executable} {' '.join(plan.args)}"})
         checks.append({"id": "artifact-root", "group": group, "label": "产物目录", "status": "ok",
                        "detail": str(plan.output or plan.artifact_root)})
-        selected_signing = cfg["projectType"] == "flutter" and bool(str(cfg["signing"].get("keystorePath") or "").strip())
+        selected_signing = bool(plan.env.get("PACK_TOOL_SIGNING_FILE"))
         if selected_signing:
             checks.append({"id": "selected-signing", "group": group, "label": "所选签名", "status": "ok",
-                           "detail": "使用当前应用选择的签名文件和密码。首次使用独立 Gradle 缓存时需要下载依赖。"})
+                           "detail": "使用当前应用选择的签名文件和密码。"})
         elif plan.build_type == "release":
             checks.append({"id": "project-signing", "group": group, "label": "发行签名", "status": "warn",
                            "detail": "发行版沿用项目自身的 Gradle 签名配置，请确认密钥和构建变体。"})
@@ -74,6 +74,11 @@ def run_preflight(draft: dict | None = None) -> dict:
         return {"ok": True, "checks": [check], "summary": {"ok": int(status == "ok"), "warn": 0, "error": int(status == "error")}}
     if cfg["projectType"] in PROJECT_LABELS:
         return _project_preflight(cfg)
+    try:
+        cfg = resolve_signing(cfg)
+    except ValueError as error:
+        return {"ok": True, "checks": [{"id": "keystore", "group": "签名与发布", "label": "应用签名", "status": "error", "detail": str(error)}],
+                "summary": {"ok": 0, "warn": 0, "error": 1}}
     app = cfg.get("app") or {}
     android = cfg.get("android") or {}
     paths = cfg.get("paths") or {}

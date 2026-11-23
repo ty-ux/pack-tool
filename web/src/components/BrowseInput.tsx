@@ -16,6 +16,8 @@ interface Props {
   mono?: boolean
   browseLabel?: string
   stacked?: boolean
+  name?: string
+  required?: boolean
   suggestions?: { tool: string; paths: LocalToolCandidate[] }
   /** 额外一个选择按钮，用于既支持文件又支持目录的输入项 */
   extraBrowse?: { kind: 'dir' | 'file'; label: string; title?: string }
@@ -36,6 +38,8 @@ export function BrowseInput({
   suggestions,
   extraBrowse,
   stacked = false,
+  name,
+  required,
 }: Props) {
   const { message } = App.useApp()
   const [busy, setBusy] = useState(false)
@@ -57,6 +61,8 @@ export function BrowseInput({
 
   const input = (
       <Input
+        name={name}
+        required={required}
         id={id}
         aria-describedby={describedBy}
         value={value}

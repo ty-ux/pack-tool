@@ -90,6 +90,7 @@ async function openWindow() {
   if (stopping) return
 
   mainWindow = new BrowserWindow({
+    icon: app.isPackaged ? path.join(app.getAppPath(), 'pack-tool.ico') : path.join(__dirname, 'assets', 'pack-tool.ico'),
     width: 1280,
     height: 850,
     minWidth: 820,
@@ -198,6 +199,38 @@ async function openWindow() {
     })()
   `)
   if (!protectedPasswords) throw new Error('Local signing passwords were not encrypted before saving')
+  const sharedKeys = await contents.executeJavaScript(`
+    (async () => {
+      const request = async (route, method = 'GET', body) => {
+        const response = await fetch('/api/' + route, {
+          method, headers: { 'Content-Type': 'application/json' },
+          body: body ? JSON.stringify(body) : undefined,
+        })
+        return { status: response.status, cache: response.headers.get('Cache-Control'), data: await response.json() }
+      }
+      const profile = (await request('apps')).data
+      const signing = { ...profile.config.signing,
+        keystorePath: ${JSON.stringify(path.join(process.env.PACK_TOOL_SMOKE_PROJECT, 'fixture.jks'))},
+        keyAlias: 'fixture',
+      }
+      const saved = (await request('signing-keys', 'POST', { name: 'shared smoke key', signing })).data
+      if (!saved.ok || !saved.key?.id || saved.key.signing.storePassword) return false
+      const id = saved.key.id
+      profile.config.signing = { keyId: id }
+      if (!(await request('config', 'POST', { config: profile.config })).data.ok) return false
+      const reloaded = (await request('apps')).data.config.signing
+      if (reloaded.keyId !== id || reloaded.storePasswordEncrypted) return false
+      const listed = await request('signing-keys')
+      if (listed.cache !== 'no-store' || listed.data.keys.find(key => key.id === id)?.usedBy.length !== 1) return false
+      const revealed = await request('signing-keys/' + id + '/reveal', 'POST', {})
+      if (revealed.cache !== 'no-store' || revealed.data.storePassword !== 'packtool smoke store password') return false
+      if ((await request('signing-keys/' + id, 'DELETE')).status !== 400) return false
+      profile.config.signing = {}
+      if (!(await request('config', 'POST', { config: profile.config })).data.ok) return false
+      return (await request('signing-keys/' + id, 'DELETE')).data.ok
+    })()
+  `)
+  if (!sharedKeys) throw new Error('Shared signing profile selection, encryption or usage protection failed')
   app.quit()
 }
 

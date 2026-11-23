@@ -57,6 +57,7 @@ def _read_app(app_id: str) -> dict | None:
 
 
 def _write_app(app_id: str, cfg: dict) -> dict:
+    key_id = (cfg.get("signing") or {}).get("keyId")
     cfg = protect_config(cfg)
     now = _now()
     existing = _read_json(_app_path(app_id)) or {}
@@ -66,7 +67,9 @@ def _write_app(app_id: str, cfg: dict) -> dict:
         "updatedAt": now,
         "config": cfg,
     }
-    _write_json(_app_path(app_id), record)
+    from .signing_keys import reference_guard
+    with reference_guard(str(key_id or "")):
+        _write_json(_app_path(app_id), record)
     return {"id": app_id, "updatedAt": now, "config": cfg}
 
 

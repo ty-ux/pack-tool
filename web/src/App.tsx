@@ -11,6 +11,7 @@ import { PathsPage } from './pages/Paths'
 import { InstallPage } from './pages/Install'
 import { BuildPage } from './pages/Build'
 import { BuildHistory } from './components/BuildHistory'
+import { SigningKeysPage } from './pages/SigningKeys'
 
 interface PageMeta {
   title: string
@@ -18,6 +19,10 @@ interface PageMeta {
 }
 
 const PAGES: Record<string, PageMeta> = {
+  keys: {
+    title: '密钥管理',
+    desc: '集中管理 Android 签名文件、别名和密码，供不同应用选择复用。',
+  },
   app: {
     title: '应用信息',
     desc: '设置 App 名称、图标、版本与 Android 包名，这些字段会写入打包产物。',
@@ -56,6 +61,13 @@ export function AppRoot() {
   const isUniApp = !config || config.projectType === 'uniapp'
   const tab = !isUniApp && ['perm', 'packages', 'install'].includes(selectedTab) ? 'app' : selectedTab
   const page = PAGES[tab] ?? PAGES.app
+  const navigate = async (next: string) => {
+    if (next === 'keys' && dirty) {
+      const result = await save({ validate: false })
+      if (!result.ok) { message.error(result.error || '当前配置保存失败'); return }
+    }
+    setTab(next)
+  }
 
   const handleSave = async () => {
     const res = await save()
@@ -99,7 +111,7 @@ export function AppRoot() {
       <div className="app-shell">
         <SideNav
           active={tab}
-          onChange={setTab}
+          onChange={(next) => { void navigate(next) }}
           permCount={config?.android.permissions.length ?? 0}
           buildPhase={build.phase}
           serverText={serverText}
@@ -142,7 +154,8 @@ export function AppRoot() {
                 )
               ) : (
                 <>
-                  {tab === 'app' && <AppInfoPage />}
+                  {tab === 'app' && <AppInfoPage onManageKeys={() => { void navigate('keys') }} />}
+                  {tab === 'keys' && <SigningKeysPage onGoApp={() => setTab('app')} />}
                   {tab === 'perm' && <PermissionsPage />}
                   {tab === 'packages' && <PackagesPage />}
                   {tab === 'path' && <PathsPage />}
@@ -155,6 +168,10 @@ export function AppRoot() {
           </main>
 
           <footer className="app-footer">
+            {tab === 'keys' ? <>
+              <span className="hint">已有应用的签名配置会自动导入。编辑后点击「保存密钥」，密码在本机加密保存。</span>
+              <Button onClick={() => setTab('app')}>返回应用信息</Button>
+            </> : <>
             <span className={`hint${dirty ? ' dirty' : ''}`}>
               {!config
                 ? '未连接到本地服务'
@@ -168,6 +185,7 @@ export function AppRoot() {
             <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} disabled={!config}>
               保存配置
             </Button>
+            </>}
           </footer>
         </div>
       </div>

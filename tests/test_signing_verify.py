@@ -74,6 +74,16 @@ class SigningVerificationTest(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertIn("没有可用于签名的私钥", result["message"])
 
+    def test_shared_profile_resolves_for_real_keystore_verification(self):
+        from server import signing_keys
+        cfg = self.config()
+        cfg["signing"].update(passwordMode="env", storePasswordEnv="PACKTOOL_TEST_STORE", keyPasswordEnv="PACKTOOL_TEST_KEY")
+        with patch.object(signing_keys, "KEYS_PATH", self.root / "library.json"), \
+                patch.object(signing_keys, "_usage", return_value=[]), patch.dict(os.environ, self.environment):
+            profile = signing_keys.save_key("fixture", cfg["signing"])
+            cfg["signing"] = {"keyId": profile["id"]}
+            self.assertTrue(verify_signing(cfg)["ok"])
+
     @unittest.skipUnless(os.name == "nt", "Windows credential protection")
     def test_saved_encrypted_passwords_can_be_verified(self):
         self.assertTrue(verify_signing(protect_config(self.config()))["ok"])
