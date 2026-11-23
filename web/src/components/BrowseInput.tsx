@@ -15,6 +15,7 @@ interface Props {
   fileFilter?: string
   mono?: boolean
   browseLabel?: string
+  stacked?: boolean
   suggestions?: { tool: string; paths: LocalToolCandidate[] }
   /** 额外一个选择按钮，用于既支持文件又支持目录的输入项 */
   extraBrowse?: { kind: 'dir' | 'file'; label: string; title?: string }
@@ -34,6 +35,7 @@ export function BrowseInput({
   browseLabel = '浏览',
   suggestions,
   extraBrowse,
+  stacked = false,
 }: Props) {
   const { message } = App.useApp()
   const [busy, setBusy] = useState(false)
@@ -53,8 +55,7 @@ export function BrowseInput({
     }
   }
 
-  return (
-    <Space.Compact style={{ width: '100%', display: 'flex' }}>
+  const input = (
       <Input
         id={id}
         aria-describedby={describedBy}
@@ -65,8 +66,11 @@ export function BrowseInput({
         spellCheck={false}
         allowClear
       />
-      {suggestions && suggestions.paths.length > 0 && (
+  )
+  const controls = [
+      suggestions && suggestions.paths.length > 0 && (
         <Select
+          key="suggestions"
           aria-label={`本机路径 · ${suggestions.tool}`}
           style={{ width: 108, flexShrink: 0 }}
           value={suggestions.paths.some(({ path }) => path === value) ? value : null}
@@ -82,19 +86,30 @@ export function BrowseInput({
             </div>
           )}
         />
-      )}
-      <Button icon={<FolderOpenOutlined />} onClick={() => pick(kind, title)} loading={busy}>
+      ),
+      <Button key="browse" icon={<FolderOpenOutlined />} onClick={() => pick(kind, title)} loading={busy}>
         {browseLabel}
-      </Button>
-      {extraBrowse && (
+      </Button>,
+      extraBrowse && (
         <Button
+          key="extra"
           icon={<FolderOpenOutlined />}
           onClick={() => pick(extraBrowse.kind, extraBrowse.title ?? title)}
           loading={busy}
         >
           {extraBrowse.label}
         </Button>
-      )}
+      ),
+  ]
+  return stacked ? (
+    <div className="browse-input-stacked">
+      {input}
+      <Space wrap>{controls}</Space>
+    </div>
+  ) : (
+    <Space.Compact style={{ width: '100%', display: 'flex' }}>
+      {input}
+      {controls}
     </Space.Compact>
   )
 }

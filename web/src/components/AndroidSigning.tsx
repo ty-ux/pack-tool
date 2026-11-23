@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Button, Card, Input, Radio } from 'antd'
+import { useEffect, useRef, useState } from 'react'
+import { Alert, Button, Card, Input, Radio } from 'antd'
+import { verifySigning } from '../api'
 import { useConfig } from '../store/config'
 import { BrowseInput } from './BrowseInput'
 import { Field } from './Field'
@@ -37,18 +38,47 @@ function PasswordInput({ id, 'aria-describedby': describedBy, value, onChange, s
 }
 
 export function AndroidSigning() {
-  const { config, setField } = useConfig()
+  const { config, setField, activeId } = useConfig()
+  const [verifying, setVerifying] = useState(false)
+  const [verification, setVerification] = useState<{ ok: boolean; message: string } | null>(null)
+  const generation = useRef(0)
+  useEffect(() => {
+    generation.current += 1
+    setVerification(null)
+    return () => { generation.current += 1 }
+  }, [activeId, config?.signing, config?.paths.javaHome])
+
+  const verify = async () => {
+    if (!config) return
+    const current = generation.current
+    setVerifying(true)
+    setVerification(null)
+    try {
+      const result = await verifySigning(config)
+      if (current === generation.current) setVerification(result)
+    } catch (error) {
+      if (current === generation.current) {
+        setVerification({ ok: false, message: error instanceof Error ? error.message : '签名验证失败，请重试' })
+      }
+    } finally {
+      setVerifying(false)
+    }
+  }
   if (!config) return null
   return (
     <Card title="Android 签名">
-      <Field label="签名文件" hint={config.projectType === 'flutter'
+      <Field label="签名文件" hint={<>
+        {config.signing.keystorePath && <div className="signing-path mono-input">{config.signing.keystorePath}</div>}
+        {config.projectType === 'flutter'
         ? '用于当前应用的 APK 或 AAB。选用签名时使用独立 Gradle 缓存，首次构建需要下载依赖'
-        : '用于当前应用的 APK（Debug 和 Release）。留空时使用离线工程原有的签名配置'}>
+        : '用于当前应用的 APK（Debug 和 Release）。留空时使用离线工程原有的签名配置'}
+      </>}>
         <BrowseInput
           kind="file"
           title="选择 Android 签名文件"
           fileFilter="Android 签名文件 (*.jks;*.keystore;*.p12)|*.jks;*.keystore;*.p12|所有文件 (*.*)|*.*"
           browseLabel="选择签名文件"
+          stacked
           placeholder="请选择 .jks 或 .keystore 文件"
           value={config.signing.keystorePath}
           onChange={(path) => setField(['signing', 'keystorePath'], path)}
@@ -122,6 +152,15 @@ export function AndroidSigning() {
               </Field>
             </>
           )}
+          <div className="signing-verification">
+            <Button htmlType="button" loading={verifying} onClick={verify}>验证签名</Button>
+            <div className="field-hint">检查签名文件、别名和两个密码是否匹配。使用当前填写或已保存的密码，无需先保存。JDK 可在「路径配置」选择。</div>
+            <div aria-live="polite" aria-atomic="true">
+              {verifying ? '正在验证签名…' : verification && (
+                <Alert showIcon type={verification.ok ? 'success' : 'error'} message={verification.message} />
+              )}
+            </div>
+          </div>
         </>
       )}
     </Card>
