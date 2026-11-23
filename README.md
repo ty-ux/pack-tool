@@ -18,7 +18,7 @@
 
 - **图形界面**：在独立桌面窗口或浏览器中可视化配置
 - **原生 Android、Flutter 与 React Native**：选择 Debug 或 Release 和可选的 Flavor，沿用工程的包名、版本和签名配置。原生 Android 和 React Native 可以指定 Gradle 模块。
-- **Flutter 版本与签名**：在「应用信息」填写可选版本号和版本码，构建时传给 Flutter，留空时读取 `pubspec.yaml`。APK 和 AAB 均可选择本机签名文件、别名和密码环境变量。选用签名时使用 PackTool 独立 Gradle 缓存，首次构建需下载依赖，私有仓库的 Gradle 全局设置需配置到该缓存目录。
+- **Flutter 版本与签名**：在「应用信息」填写可选版本号和版本码，构建时传给 Flutter，留空时读取 `pubspec.yaml`。APK 和 AAB 均可选择本机签名文件、别名并直接填写密码。选用签名时使用 PackTool 独立 Gradle 缓存，首次构建需下载依赖，私有仓库的 Gradle 全局设置需配置到该缓存目录。
 - **uni-app 配置**：
   - App 名称、图标、包名、版本号
   - 权限（勾选：相机/扫码/联网/存储/安装APK 等 17 项）
@@ -170,12 +170,14 @@ React Native 使用 `android/` 下的 Gradle 构建。Release 由 React Native G
 
 APK 构建会替换离线工程中的应用资源，并修改 Manifest、Gradle 配置和应用图标。同步依赖时，取消勾选的托管依赖会从 `simpleDemo/libs` 移除。APK 和 WGT 构建还会把界面填写的版本号写回 uni-app 项目的 `manifest.json`。首次试用建议使用工程副本。
 
-### 为 uni-app 应用选择 Android 签名
+### 为 uni-app 或 Flutter 应用选择 Android 签名
 
 1. 切换到要打包的应用，打开「应用信息 → Android 签名」，选择本机的 `.jks` 或 `.keystore` 文件并填写密钥别名（Key Alias）。
-2. 填写**环境变量名**，例如 `DEMO_STORE_PASSWORD`。如果密钥密码和密钥库密码不同，再填写单独的变量名，例如 `DEMO_KEY_PASSWORD`。每个应用可以使用不同的变量名。
-3. 在运行打包工具的 Windows 用户下设置这些环境变量。已启动工具时，停止本地服务再重新启动，使服务读取新变量。
-4. 保存配置并在「打包构建」运行构建前检查。所选密钥同时适用于该应用的 Debug 和 Release APK。留空签名文件时沿用离线工程的 Gradle 签名，旧应用配置可以继续使用。
+2. 默认选择「直接填写」，输入密钥库密码。密钥密码与密钥库密码相同时留空，不同时填写。
+3. 保存配置。密码由 Windows DPAPI 按当前账户加密保存，各应用独立。再次打开时密码框为空，显示「已保存」；留空会保留原密码，填写新密码可替换，也可明确清除。更换电脑或 Windows 账户后需重新填写。
+4. 在「打包构建」运行构建前检查。所选密钥适用于该应用的 Debug 和 Release，Flutter 支持 APK 和 AAB。留空签名文件时沿用工程的 Gradle 签名。
+
+需要沿用已有环境变量时，选择「环境变量（高级）」，填写变量名，例如 `DEMO_STORE_PASSWORD`；密钥密码不同时再填写 `DEMO_KEY_PASSWORD`。在运行工具的 Windows 用户下设置变量后重新启动工具。已配置且能读取密码变量的旧应用会保留此方式。本机加密保存目前支持 Windows，其他系统可使用环境变量。
 
 也可以只为当前 PowerShell 会话设置密码，再从同一个窗口启动服务。下面的命令会提示输入，避免把密码写进命令历史。
 
@@ -184,7 +186,7 @@ $env:DEMO_STORE_PASSWORD = [System.Net.NetworkCredential]::new('', (Read-Host '�
 python -m server
 ```
 
-打包工具只保存文件路径、别名和变量名，密码在构建时通过进程环境传给 Gradle。按应用签名需要支持 `finalizeDsl` 的 Android Gradle Plugin（AGP 7.2+）。签名文件及密码保存在本机。更换签名前请确认 DCloud 后台配置的 AppID、包名及证书 SHA-1 和实际 APK 一致。
+密码在构建时解密并通过子进程环境传给 Gradle，运行配置和构建历史不保存密码或加密密码副本。按应用签名需要支持 `finalizeDsl` 的 Android Gradle Plugin（AGP 7.2+）。签名文件及密码保存在本机。更换 uni-app 签名前请确认 DCloud 后台配置的 AppID、包名及证书 SHA-1 和实际 APK 一致。
 
 ## 打包流程（脚本内部）
 

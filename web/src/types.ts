@@ -32,6 +32,11 @@ export interface AppConfig {
   signing: {
     keystorePath: string
     keyAlias: string
+    passwordMode: 'local' | 'env'
+    storePassword?: string
+    keyPassword?: string
+    storePasswordEncrypted: string
+    keyPasswordEncrypted: string
     storePasswordEnv: string
     keyPasswordEnv: string
   }

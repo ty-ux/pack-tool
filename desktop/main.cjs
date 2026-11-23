@@ -152,6 +152,27 @@ async function openWindow() {
     })()
   `)
   if (!typedApps) throw new Error('Project profiles did not load their build checks')
+  const protectedPasswords = await contents.executeJavaScript(`
+    (async () => {
+      const profile = await fetch('/api/apps').then(response => response.json())
+      profile.config.signing.passwordMode = 'local'
+      profile.config.signing.storePassword = 'packtool smoke store password'
+      profile.config.signing.keyPassword = 'packtool smoke key password'
+      const saved = await fetch('/api/config', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: profile.config }),
+      }).then(response => response.json())
+      const signing = saved.config?.signing
+      if (!saved.ok || signing.storePassword || signing.keyPassword ||
+          !signing.storePasswordEncrypted?.startsWith('dpapi:') ||
+          !signing.keyPasswordEncrypted?.startsWith('dpapi:')) return false
+      const reloaded = await fetch('/api/apps').then(response => response.json())
+      return reloaded.config.signing.storePasswordEncrypted === signing.storePasswordEncrypted &&
+        !JSON.stringify(reloaded).includes('packtool smoke store password') &&
+        !JSON.stringify(reloaded).includes('packtool smoke key password')
+    })()
+  `)
+  if (!protectedPasswords) throw new Error('Local signing passwords were not encrypted before saving')
   app.quit()
 }
 
