@@ -73,7 +73,10 @@ def get_config():
 def post_config(body: SaveConfigBody):
     if not body.config:
         raise HTTPException(400, "缺少 config")
-    config_mod.save_config(body.config)
+    try:
+        config_mod.save_config(body.config)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
     return {"ok": True, "config": config_mod.load_config()}
 
 

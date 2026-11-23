@@ -37,7 +37,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   projectBuild: { gradleModule: 'app', flavor: '', flutterVersionName: '', flutterVersionCode: '' },
   app: { name: '新应用', icon: '', appid: '', versionName: '1.0.0', versionCode: '1' },
   android: { packageName: '', permissions: [] },
-  signing: { keystorePath: '', keyAlias: '', storePasswordEnv: 'PACK_TOOL_KEYSTORE_PASSWORD', keyPasswordEnv: '' },
+  signing: { keystorePath: '', keyAlias: '', passwordMode: 'local', storePasswordEncrypted: '', keyPasswordEncrypted: '', storePasswordEnv: 'PACK_TOOL_KEYSTORE_PASSWORD', keyPasswordEnv: '' },
   build: { buildType: 'debug', platform: 'apk', webType: 'h5' },
   web: { webTitle: '', webDomain: '', ssr: false },
   wechat: { appid: '', privateKeyPath: '', version: '1.0.0', description: '' },
@@ -227,7 +227,8 @@ export function validateRequired(config: AppConfig): string | null {
   if (config.build.platform === 'apk') {
     required.push([config.android.packageName, '包名'], [config.paths.integrateDir, '离线打包工程目录'])
     if (config.signing.keystorePath.trim()) {
-      required.push([config.signing.keyAlias, '密钥别名'], [config.signing.storePasswordEnv, '密钥库密码变量名'])
+      required.push([config.signing.keyAlias, '密钥别名'])
+      if (config.signing.passwordMode === 'env') required.push([config.signing.storePasswordEnv, '密钥库密码变量名'])
     }
   }
   for (const [value, label] of required) {

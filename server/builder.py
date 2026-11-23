@@ -12,7 +12,7 @@ from . import packages as packages_mod
 from .local_tools import android_sdk_environment
 from .paths import BUILD_LOG, LOGS_DIR, SCRIPTS_DIR, fspath
 from .project_builds import PROJECT_LABELS, ProjectBuild, prepare_project_build
-from .signing import signing_error
+from .signing import signing_environment, signing_error
 from .wechat import PLATFORM as WECHAT_PLATFORM, MiniProgramBuild, prepare_wechat_build
 
 CREATE_NO_WINDOW = 0x08000000
@@ -109,9 +109,7 @@ class BuildManager:
                 if platform == "apk" and (error := signing_error(cfg)):
                     raise ValueError(error)
                 if platform == "apk":
-                    sdk_env = android_sdk_environment(cfg["paths"])
-                    if sdk_env:
-                        env = {**os.environ, **sdk_env}
+                    env = {**os.environ, **android_sdk_environment(cfg["paths"]), **signing_environment(cfg)}
                 if platform == "apk" and cfg["install"].get("enabled"):
                     adb_path = find_adb(str(cfg["paths"].get("adb") or "").strip())
                     if adb_path:

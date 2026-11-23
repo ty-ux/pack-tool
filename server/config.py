@@ -91,6 +91,9 @@ DEFAULT_CONFIG = {
     "signing": {
         "keystorePath": "",
         "keyAlias": "",
+        "passwordMode": "local",
+        "storePasswordEncrypted": "",
+        "keyPasswordEncrypted": "",
         "storePasswordEnv": "PACK_TOOL_KEYSTORE_PASSWORD",
         "keyPasswordEnv": "",
     },
@@ -153,6 +156,12 @@ def save_config(cfg: dict) -> None:
 
 def write_run_config(cfg: dict) -> str:
     """把当前配置深拷贝写到 build_config.json（ps1 读取用），返回路径字符串"""
+    from .signing import redact_config
+
+    cfg = redact_config(cfg)
+    if (cfg.get("signing") or {}).get("keystorePath"):
+        cfg["signing"]["storePasswordEnv"] = "PACK_TOOL_SIGNING_STORE_PASSWORD"
+        cfg["signing"]["keyPasswordEnv"] = "PACK_TOOL_SIGNING_KEY_PASSWORD"
     RUN_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(RUN_CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(cfg, f, ensure_ascii=False, indent=4)

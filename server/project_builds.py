@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .local_tools import android_sdk_environment, executable_name
 from .paths import DATA_ROOT, SCRIPTS_DIR
-from .signing import signing_error
+from .signing import signing_environment, signing_error
 
 
 ANDROID_FORMATS = ("apk", "aab")
@@ -157,14 +157,11 @@ def prepare_project_build(cfg: dict, platform: str, build_type: str) -> ProjectB
         if str(signing.get("keystorePath") or "").strip():
             if error := signing_error(cfg):
                 raise ValueError(error)
-            store_env = signing["storePasswordEnv"].strip()
-            key_env = str(signing.get("keyPasswordEnv") or "").strip() or store_env
             env.update({
                 "GRADLE_USER_HOME": str(DATA_ROOT / "data" / "flutter-gradle"),
                 "PACK_TOOL_SIGNING_FILE": signing["keystorePath"].strip(),
                 "PACK_TOOL_SIGNING_ALIAS": signing["keyAlias"].strip(),
-                "PACK_TOOL_SIGNING_STORE_PASSWORD": os.environ[store_env],
-                "PACK_TOOL_SIGNING_KEY_PASSWORD": os.environ[key_env],
+                **signing_environment(cfg),
                 "PACK_TOOL_SIGNING_BUILD_TYPE": build_type,
                 "PACK_TOOL_SIGNING_MODULE": ":app",
             })

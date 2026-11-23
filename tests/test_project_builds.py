@@ -92,7 +92,7 @@ class ProjectBuildTest(unittest.TestCase):
     def test_flutter_selected_signing_is_scoped_and_preflight_is_read_only(self):
         self.flutter()
         keystore = self.write("keys/test.jks")
-        self.config["signing"].update(keystorePath=str(keystore), keyAlias="fixture",
+        self.config["signing"].update(keystorePath=str(keystore), keyAlias="fixture", passwordMode="env",
                                       storePasswordEnv="PACKTOOL_TEST_STORE", keyPasswordEnv="PACKTOOL_TEST_KEY")
         with patch.dict(os.environ, {"PACKTOOL_TEST_STORE": "store test", "PACKTOOL_TEST_KEY": "key test"}):
             environment = os.environ.copy()

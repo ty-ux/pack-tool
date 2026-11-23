@@ -2,11 +2,13 @@
 import copy
 import datetime
 import json
+import os
 import threading
 import uuid
 
 from .config import DEFAULT_CONFIG, deep_merge
 from .paths import ACTIVE_APP_PATH, APPS_DIR, CONFIG_PATH
+from .signing import protect_config
 
 # 新建应用沿用的机器级路径。输出目录通常按项目设置。
 INHERITED_PATHS = ("hbuilderxCli", "integrateDir", "javaHome", "androidSdk", "adb", "flutterCli", "nodeDir")
@@ -48,10 +50,14 @@ def _read_app(app_id: str) -> dict | None:
         return None
     cfg = copy.deepcopy(DEFAULT_CONFIG)
     deep_merge(cfg, raw["config"])
+    signing = raw["config"].get("signing") or {}
+    if "passwordMode" not in signing and os.environ.get(str(signing.get("storePasswordEnv") or "")):
+        cfg["signing"]["passwordMode"] = "env"
     return {"id": app_id, "updatedAt": str(raw.get("updatedAt") or ""), "config": cfg}
 
 
 def _write_app(app_id: str, cfg: dict) -> dict:
+    cfg = protect_config(cfg)
     now = _now()
     existing = _read_json(_app_path(app_id)) or {}
     record = {

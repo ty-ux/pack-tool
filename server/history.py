@@ -6,6 +6,7 @@ import datetime
 from pathlib import Path
 
 from .paths import BUILD_LOG, DATA_ROOT, LOGS_DIR
+from .signing import redact_config
 
 DATA_DIR = DATA_ROOT / "data"
 DB_PATH = DATA_DIR / "build_history.db"
@@ -62,7 +63,7 @@ def create_build(meta: dict, config_snapshot: dict) -> int:
                 meta["web_type"],
                 meta["build_type"],
                 meta.get("target_desc", ""),
-                json.dumps(config_snapshot, ensure_ascii=False),
+                json.dumps(redact_config(config_snapshot), ensure_ascii=False),
             ),
         )
         return cur.lastrowid
