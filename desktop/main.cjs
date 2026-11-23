@@ -3,7 +3,7 @@ const { spawn } = require('node:child_process')
 const { randomBytes } = require('node:crypto')
 const { mkdirSync } = require('node:fs')
 const path = require('node:path')
-const { createInterface } = require('node:readline')
+const { createStartupLog, waitForPort } = require('./startup.cjs')
 
 const smokeTest = process.argv.includes('--smoke-test')
 if (smokeTest && process.env.PACK_TOOL_SMOKE_DIR) {
@@ -15,53 +15,22 @@ let mainWindow
 let stopping = false
 let exitCode = 0
 let stopTimer
+let startupLog
 
 function fail(error) {
   exitCode = 1
   console.error(error)
+  startupLog?.write(error.stack || error.message)
   if (!smokeTest) {
-    dialog.showErrorBox('PackTool 启动失败', error.message)
+    dialog.showErrorBox('PackTool 启动失败', error.message + (startupLog ? '\n\n启动日志：' + startupLog.file : ''))
   }
   if (backend) app.quit()
   else app.exit(exitCode)
 }
 
-function waitForPort(child) {
-  return new Promise((resolve, reject) => {
-    const lines = createInterface({ input: child.stdout })
-    let stderr = ''
-    child.stderr.setEncoding('utf8')
-    child.stderr.on('data', (chunk) => {
-      stderr = (stderr + chunk).slice(-3000)
-    })
-    const timer = setTimeout(() => {
-      reject(new Error('等待本地服务启动超时。' + stderr))
-    }, 30_000)
-
-    lines.once('line', (line) => {
-      clearTimeout(timer)
-      try {
-        const { port } = JSON.parse(line)
-        if (!Number.isInteger(port) || port < 1 || port > 65535) {
-          throw new Error('本地服务返回了无效端口。')
-        }
-        resolve(port)
-      } catch (error) {
-        reject(error)
-      }
-    })
-    child.once('error', (error) => {
-      clearTimeout(timer)
-      reject(error)
-    })
-    child.once('close', (code) => {
-      clearTimeout(timer)
-      reject(new Error('本地服务退出（' + code + '）。' + stderr))
-    })
-  })
-}
-
 async function openWindow() {
+  startupLog = createStartupLog(path.join(app.getPath('userData'), 'logs'))
+  startupLog.write('Starting PackTool ' + app.getVersion())
   const dataDir = path.join(app.getPath('userData'), 'workspace')
   mkdirSync(dataDir, { recursive: true })
   const token = randomBytes(32).toString('hex')
@@ -86,7 +55,7 @@ async function openWindow() {
     if (stopping) app.exit(exitCode)
     else if (mainWindow) fail(new Error('本地服务已意外停止。请重新启动 PackTool。'))
   })
-  const origin = 'http://127.0.0.1:' + await waitForPort(backend)
+  const origin = 'http://127.0.0.1:' + await waitForPort(backend, startupLog.write)
   if (stopping) return
 
   mainWindow = new BrowserWindow({

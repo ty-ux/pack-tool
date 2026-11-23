@@ -2,6 +2,7 @@
 
 import ctypes
 import json
+import logging
 import os
 import secrets
 import sys
@@ -18,13 +19,27 @@ from server.staticserve import has_dist
 
 class DesktopServer(uvicorn.Server):
     async def startup(self, sockets=None):
-        await super().startup(sockets)
+        stopped = threading.Event()
+
+        def report_startup():
+            while not stopped.is_set():
+                print(json.dumps({"event": "startup-progress", "stage": "preparing-data"}), flush=True)
+                stopped.wait(5)
+
+        reporter = threading.Thread(target=report_startup, daemon=True)
+        reporter.start()
+        try:
+            await super().startup(sockets)
+        finally:
+            stopped.set()
+            reporter.join()
         if self.started:
             port = self.servers[0].sockets[0].getsockname()[1]
             print(json.dumps({"port": port}), flush=True)
 
 
 def run() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     token = os.environ.pop("PACK_TOOL_DESKTOP_TOKEN")
     if not has_dist():
         raise RuntimeError("Frontend assets are missing")
