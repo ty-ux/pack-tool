@@ -196,7 +196,9 @@ class BuildManager:
                     build_id = self._current_build_id
                     if not self._cancel:
                         self._proc = subprocess.Popen(
-                            cmd, stdout=f, stderr=subprocess.STDOUT,
+                            # Desktop stdin is a live pipe used only for shutdown.
+                            # Inheriting it can block Git/Flutter's startup reads.
+                            cmd, stdin=subprocess.DEVNULL, stdout=f, stderr=subprocess.STDOUT,
                             creationflags=CREATE_NO_WINDOW if os.name == "nt" else 0,
                             cwd=plan.working_dir if plan else None,
                             env=env,

@@ -180,7 +180,7 @@ export function AppInfoPage() {
 
   if (config.projectType !== 'uniapp') {
     return (
-      <div className="card-grid">
+      <div className={`card-grid${config.projectType === 'flutter' ? ' app-info-grid' : ''}`}>
         <Card title="基本信息">
           {basicFields}
           {config.projectType === 'flutter' && (
@@ -209,7 +209,7 @@ export function AppInfoPage() {
   }
 
   return (
-    <div className="card-grid">
+    <div className="card-grid app-info-grid">
       <Card title="基本信息">
         {basicFields}
         <Field label="App 图标">

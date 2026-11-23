@@ -152,6 +152,31 @@ async function openWindow() {
     })()
   `)
   if (!typedApps) throw new Error('Project profiles did not load their build checks')
+  const built = await contents.executeJavaScript(`
+    (async () => {
+      const request = (route, body) => fetch('/api/' + route, {
+        method: body ? 'POST' : 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      }).then(response => response.json())
+      const profile = await request('apps', { name: 'stdin regression', projectType: 'flutter' })
+      profile.config.paths.projectDir = ${JSON.stringify(process.env.PACK_TOOL_SMOKE_PROJECT)}
+      profile.config.paths.flutterCli = ${JSON.stringify(path.join(process.env.PACK_TOOL_SMOKE_PROJECT, 'flutter.bat'))}
+      if (!(await request('config', { config: profile.config })).ok) return false
+      if (!(await request('build', { platform: 'apk' })).ok) return false
+      const deadline = Date.now() + 15_000
+      while ((await request('status')).running) {
+        if (Date.now() >= deadline) {
+          await request('build/cancel', {})
+          return false
+        }
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
+      const { log } = await request('logs')
+      return log.includes('PACKTOOL-CHILD-EOF') && log.includes('BUILD-OK')
+    })()
+  `)
+  if (!built) throw new Error('Desktop build inherited the live shutdown pipe or failed to collect its artifact')
   const protectedPasswords = await contents.executeJavaScript(`
     (async () => {
       const profile = await fetch('/api/apps').then(response => response.json())

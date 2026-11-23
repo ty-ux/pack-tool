@@ -61,6 +61,8 @@ export const api = {
 
 export const saveConfig = (config: AppConfig) =>
   api.post<{ ok: boolean; config: AppConfig }>('/api/config', { config })
+export const verifySigning = (config: AppConfig) =>
+  api.post<{ ok: boolean; message: string }>('/api/signing/verify', { config })
 export const getApps = () => api.get<AppsPayload>('/api/apps')
 export const createApp = (name: string, projectType: ProjectType) =>
   api.post<AppsPayload>('/api/apps', { name, projectType })

@@ -18,6 +18,7 @@ from ..builder import build_manager
 from ..local_tools import discover_tools
 from ..paths import BUILD_LOG
 from ..project_builds import ANDROID_FORMATS, PROJECT_LABELS
+from ..signing_verify import verify_signing
 from ..wechat import NATIVE_TYPE, PLATFORM as WECHAT_PLATFORM, preview_file
 
 router = APIRouter(prefix="/api")
@@ -83,6 +84,14 @@ def post_config(body: SaveConfigBody):
 @router.get("/permissions")
 def get_permissions():
     return {"ok": True, "permissions": config_mod.PERMISSIONS}
+
+
+@router.post("/signing/verify")
+def post_verify_signing(body: SaveConfigBody):
+    try:
+        return verify_signing(body.config)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
 
 
 @router.get("/local-tools")
