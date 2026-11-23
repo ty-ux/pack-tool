@@ -10,10 +10,25 @@ from .secret_store import protect, unprotect
 _ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
+def resolve_signing(cfg: dict) -> dict:
+    """Take a snapshot of the referenced profile before starting a build."""
+    key_id = (cfg.get("signing") or {}).get("keyId")
+    if not key_id:
+        return cfg
+    from .signing_keys import get_signing
+
+    resolved = deepcopy(cfg)
+    resolved["signing"] = get_signing(str(key_id))
+    return resolved
+
+
 def protect_config(cfg: dict) -> dict:
     """Consume password drafts once; only encrypted credentials may reach disk/API responses."""
     saved = deepcopy(cfg)
     signing = saved.get("signing") or {}
+    if signing.get("keyId"):
+        saved["signing"] = {"keyId": str(signing["keyId"])}
+        return saved
     for field in ("storePassword", "keyPassword"):
         password = signing.pop(field, "")
         if signing.get("passwordMode") == "local" and password:
@@ -31,6 +46,7 @@ def redact_config(cfg: dict) -> dict:
 
 
 def signing_passwords(cfg: dict) -> tuple[str, str]:
+    cfg = resolve_signing(cfg)
     signing = cfg.get("signing") or {}
     if signing.get("passwordMode", "env") == "local":
         def password(field):
@@ -52,6 +68,7 @@ def signing_passwords(cfg: dict) -> tuple[str, str]:
 
 
 def signing_environment(cfg: dict) -> dict[str, str]:
+    cfg = resolve_signing(cfg)
     if not str((cfg.get("signing") or {}).get("keystorePath") or "").strip():
         return {}
     store, key = signing_passwords(cfg)
@@ -59,6 +76,10 @@ def signing_environment(cfg: dict) -> dict[str, str]:
 
 
 def signing_error(cfg: dict) -> str | None:
+    try:
+        cfg = resolve_signing(cfg)
+    except ValueError as error:
+        return str(error)
     signing = cfg.get("signing") or {}
     path = str(signing.get("keystorePath") or "").strip()
     if not path:

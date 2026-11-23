@@ -4,7 +4,7 @@ import subprocess
 from typing import Literal, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 from .. import adb as adb_mod
@@ -14,6 +14,7 @@ from .. import config as config_mod
 from .. import history as history_mod
 from .. import packages as packages_mod
 from .. import preflight as preflight_mod
+from .. import signing_keys
 from ..builder import build_manager
 from ..local_tools import discover_tools
 from ..paths import BUILD_LOG
@@ -28,6 +29,12 @@ CREATE_NO_WINDOW = 0x08000000
 # ---------------- 请求体 ----------------
 class SaveConfigBody(BaseModel):
     config: dict
+
+
+class SigningKeyBody(BaseModel):
+    name: str
+    signing: dict
+    id: str = ""
 
 
 class CreateAppBody(BaseModel):
@@ -97,6 +104,48 @@ def post_verify_signing(body: SaveConfigBody):
 @router.get("/local-tools")
 def get_local_tools():
     return {"ok": True, "tools": discover_tools()}
+
+
+@router.get("/signing-keys")
+def get_signing_keys():
+    try:
+        return JSONResponse({"ok": True, "keys": signing_keys.list_keys()}, headers={"Cache-Control": "no-store"})
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+
+
+@router.post("/signing-keys/import")
+def import_signing_keys():
+    try:
+        added = signing_keys.import_app_keys()
+        return {"ok": True, "imported": added, "keys": signing_keys.list_keys()}
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+
+
+@router.post("/signing-keys")
+def save_signing_key(body: SigningKeyBody):
+    try:
+        return {"ok": True, "key": signing_keys.save_key(body.name, body.signing, body.id)}
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+
+
+@router.delete("/signing-keys/{key_id}")
+def delete_signing_key(key_id: str):
+    try:
+        signing_keys.delete_key(key_id)
+        return {"ok": True}
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+
+
+@router.post("/signing-keys/{key_id}/reveal")
+def reveal_signing_key(key_id: str):
+    try:
+        return JSONResponse({"ok": True, **signing_keys.reveal_passwords(key_id)}, headers={"Cache-Control": "no-store"})
+    except ValueError as error:
+        raise HTTPException(400, str(error))
 
 
 # ---------------- 多应用 ----------------

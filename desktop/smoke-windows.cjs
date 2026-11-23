@@ -30,6 +30,7 @@ try {
   const project = path.join(testRoot, 'test Flutter project')
   fs.mkdirSync(path.join(project, 'android'), { recursive: true })
   fs.writeFileSync(path.join(project, 'pubspec.yaml'), 'name: packtool_smoke\n')
+  fs.writeFileSync(path.join(project, 'fixture.jks'), 'smoke signing profile fixture')
   // An inherited live desktop stdin pipe would block this read indefinitely.
   fs.writeFileSync(path.join(project, 'flutter.bat'), [
     '@echo off',
@@ -51,5 +52,12 @@ try {
   }
   console.log('PackTool release ZIP passed the Windows desktop smoke test')
 } finally {
-  fs.rmSync(testRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 })
+  try {
+    fs.rmSync(testRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 })
+  } catch (error) {
+    // Windows may briefly retain a directory handle after Electron exits.
+    // Cleanup must not replace an assertion failure or reject a successful test.
+    if (!['EPERM', 'EBUSY', 'ENOTEMPTY'].includes(error.code)) throw error
+    console.warn('Temporary smoke files are still locked and were left at: ' + testRoot)
+  }
 }

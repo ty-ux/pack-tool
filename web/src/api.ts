@@ -18,6 +18,7 @@ import type {
   PreflightPayload,
   ProjectType,
   WechatAction,
+  SigningKey,
 } from './types'
 
 class ApiError extends Error {
@@ -63,6 +64,13 @@ export const saveConfig = (config: AppConfig) =>
   api.post<{ ok: boolean; config: AppConfig }>('/api/config', { config })
 export const verifySigning = (config: AppConfig) =>
   api.post<{ ok: boolean; message: string }>('/api/signing/verify', { config })
+export const importSigningKeys = () => api.post<{ ok: boolean; imported: number; keys: SigningKey[] }>('/api/signing-keys/import')
+export const getSigningKeys = () => api.get<{ ok: boolean; keys: SigningKey[] }>('/api/signing-keys')
+export const saveSigningKey = (name: string, signing: AppConfig['signing'], id = '') =>
+  api.post<{ ok: boolean; key: SigningKey }>('/api/signing-keys', { name, signing, id })
+export const deleteSigningKey = (id: string) => request<{ ok: boolean }>(`/api/signing-keys/${encodeURIComponent(id)}`, { method: 'DELETE' })
+export const revealSigningKey = (id: string) =>
+  api.post<{ ok: boolean; storePassword: string; keyPassword: string }>(`/api/signing-keys/${encodeURIComponent(id)}/reveal`)
 export const getApps = () => api.get<AppsPayload>('/api/apps')
 export const createApp = (name: string, projectType: ProjectType) =>
   api.post<AppsPayload>('/api/apps', { name, projectType })

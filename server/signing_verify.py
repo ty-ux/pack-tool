@@ -6,10 +6,11 @@ from pathlib import Path
 
 from .local_tools import executable_name
 from .paths import SCRIPTS_DIR
-from .signing import signing_error, signing_passwords
+from .signing import resolve_signing, signing_error, signing_passwords
 
 
 def verify_signing(cfg: dict) -> dict:
+    cfg = resolve_signing(cfg)
     signing = cfg.get("signing") or {}
     if not str(signing.get("keystorePath") or "").strip():
         raise ValueError("请先选择签名文件")

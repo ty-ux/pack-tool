@@ -37,7 +37,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   projectBuild: { gradleModule: 'app', flavor: '', flutterVersionName: '', flutterVersionCode: '' },
   app: { name: '新应用', icon: '', appid: '', versionName: '1.0.0', versionCode: '1' },
   android: { packageName: '', permissions: [] },
-  signing: { keystorePath: '', keyAlias: '', passwordMode: 'local', storePasswordEncrypted: '', keyPasswordEncrypted: '', storePasswordEnv: 'PACK_TOOL_KEYSTORE_PASSWORD', keyPasswordEnv: '' },
+  signing: { keyId: '', keystorePath: '', keyAlias: '', passwordMode: 'local', storePasswordEncrypted: '', keyPasswordEncrypted: '', storePasswordEnv: 'PACK_TOOL_KEYSTORE_PASSWORD', keyPasswordEnv: '' },
   build: { buildType: 'debug', platform: 'apk', webType: 'h5' },
   web: { webTitle: '', webDomain: '', ssr: false },
   wechat: { appid: '', privateKeyPath: '', version: '1.0.0', description: '' },

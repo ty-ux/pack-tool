@@ -11,6 +11,7 @@ import {
   PlusOutlined,
   RocketOutlined,
   SafetyCertificateOutlined,
+  KeyOutlined,
 } from '@ant-design/icons'
 import type { BuildPhase } from '../hooks/useBuild'
 import type { ProjectType } from '../types'
@@ -34,6 +35,7 @@ interface NavItem {
 
 const CONFIG_ITEMS: NavItem[] = [
   { key: 'app', label: '应用信息', icon: <MobileOutlined /> },
+  { key: 'keys', label: '密钥管理', icon: <KeyOutlined /> },
   { key: 'perm', label: '权限配置', icon: <SafetyCertificateOutlined /> },
   { key: 'packages', label: '依赖包管理', icon: <AppstoreOutlined /> },
   { key: 'path', label: '路径配置', icon: <FolderOpenOutlined /> },
@@ -144,7 +146,7 @@ export function SideNav({ active, onChange, permCount, buildPhase, serverText, s
       type: 'group',
       label: '配置',
       children: CONFIG_ITEMS
-        .filter((it) => !config || config.projectType === 'uniapp' || it.key === 'app' || it.key === 'path')
+        .filter((it) => !config || config.projectType === 'uniapp' || ['app', 'path', 'keys'].includes(it.key))
         .map((it) => ({ key: it.key, icon: it.icon, label: renderLabel(it) })),
     },
     {

@@ -12,7 +12,7 @@ from . import packages as packages_mod
 from .local_tools import android_sdk_environment
 from .paths import BUILD_LOG, LOGS_DIR, SCRIPTS_DIR, fspath
 from .project_builds import PROJECT_LABELS, ProjectBuild, prepare_project_build
-from .signing import signing_environment, signing_error
+from .signing import resolve_signing, signing_environment, signing_error
 from .wechat import PLATFORM as WECHAT_PLATFORM, MiniProgramBuild, prepare_wechat_build
 
 CREATE_NO_WINDOW = 0x08000000
@@ -61,6 +61,7 @@ class BuildManager:
             self._idle.clear()
 
         try:
+            cfg = resolve_signing(cfg)
             plan = None
             env = None
             if platform == WECHAT_PLATFORM:

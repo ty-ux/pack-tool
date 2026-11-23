@@ -398,8 +398,20 @@ p, .hint { text-wrap: pretty; }
 .browse-input-stacked { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
 .signing-path { overflow-wrap: anywhere; margin-block-end: var(--space-2); }
 .signing-verification { display: flex; flex-direction: column; gap: var(--space-2); margin-block-start: var(--space-4); }
+.key-management { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }
+.key-management > *, .key-management .ant-card-head-title { min-width: 0; }
+.key-management .ant-card-head-title { white-space: normal; overflow-wrap: anywhere; }
+.key-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-block-end: var(--space-4); }
+.signing-key-list { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-4); }
+.signing-summary { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-2) var(--space-3); }
+.signing-summary dt { color: var(--color-text-secondary, #6b7280); }
+.signing-summary dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.key-passwords { display: grid; justify-items: start; gap: var(--space-2); margin-block-start: var(--space-3); }
+.key-actions { margin-block-start: var(--space-4); }
+.key-form-feedback { margin-block-start: var(--space-3); }
+.key-card-selected { outline: 2px solid var(--color-text, #1c1c1e); outline-offset: 2px; }
 @media (max-width: 960px) {
-  .card-grid, .card-grid.app-info-grid { grid-template-columns: minmax(0, 1fr); }
+  .card-grid, .card-grid.app-info-grid, .key-management { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ============ 统计读数条 ============ */

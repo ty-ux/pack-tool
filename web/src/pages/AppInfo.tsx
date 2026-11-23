@@ -152,7 +152,7 @@ function InstallPreview() {
   )
 }
 
-export function AppInfoPage() {
+export function AppInfoPage({ onManageKeys }: { onManageKeys: () => void }) {
   const { config, setField } = useConfig()
   if (!config) return null
 
@@ -180,7 +180,7 @@ export function AppInfoPage() {
 
   if (config.projectType !== 'uniapp') {
     return (
-      <div className={`card-grid${config.projectType === 'flutter' ? ' app-info-grid' : ''}`}>
+      <div className="card-grid app-info-grid">
         <Card title="基本信息">
           {basicFields}
           {config.projectType === 'flutter' && (
@@ -200,10 +200,10 @@ export function AppInfoPage() {
           <p className="field-hint">
             {config.projectType === 'wechat-miniprogram'
               ? '在「路径配置」选择小程序项目，在「打包构建」设置微信 AppID 和代码上传密钥。'
-              : config.projectType === 'flutter' ? '包名和权限使用 Flutter 工程配置，版本和签名可在此设置。' : '包名、版本、权限及发行签名使用项目自身的 Android 配置。'}
+              : config.projectType === 'flutter' ? '包名和权限使用 Flutter 工程配置，版本和签名可在此设置。' : '包名、版本和权限使用项目自身配置，签名可选择共享密钥或沿用工程设置。'}
           </p>
         </Card>
-        {config.projectType === 'flutter' && <AndroidSigning />}
+        {config.projectType !== 'wechat-miniprogram' && <AndroidSigning onManageKeys={onManageKeys} />}
       </div>
     )
   }
@@ -260,7 +260,7 @@ export function AppInfoPage() {
         <InstallPreview />
       </Card>
 
-      <AndroidSigning />
+      <AndroidSigning onManageKeys={onManageKeys} />
     </div>
   )
 }
