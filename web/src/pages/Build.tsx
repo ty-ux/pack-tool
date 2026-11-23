@@ -316,7 +316,10 @@ export function BuildPage({ build }: Props) {
               ? config.projectType === 'react-native'
                 ? 'React Native 的 Debug 包通常需要连接 Metro 开发服务器。'
                 : 'Debug 便于调试，体积较大，适合开发联调。'
-              : uniapp ? 'Release 为发布包（使用 keystore 签名），适合交付上线。' : 'Release 沿用项目的发行签名配置。'}
+              : uniapp ? 'Release 为发布包（使用 keystore 签名），适合交付上线。'
+                : config.projectType === 'flutter' && config.signing.keystorePath.trim()
+                  ? 'Release 使用「应用信息」中选择的签名文件。'
+                  : 'Release 沿用项目的发行签名配置。'}
           </div>
         </Card>
       ) : platform === 'wgt' ? (

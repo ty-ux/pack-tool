@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 from copy import deepcopy
 from pathlib import Path
 
@@ -73,6 +74,39 @@ class ProjectBuildTest(unittest.TestCase):
         self.assertEqual(bundle.args, ["build", "appbundle", "--release", "--flavor", "demo"])
         bundle_path = self.write("build/app/outputs/bundle/demoRelease/app-demo-release.aab")
         self.assertEqual(bundle.collect(), bundle_path)
+
+    def test_flutter_version_overrides_validate_and_preserve_defaults(self):
+        self.flutter()
+        self.config["projectBuild"].update(flutterVersionName="2.3.4", flutterVersionCode="42")
+        for platform in ("apk", "aab"):
+            plan = prepare_project_build(self.config, platform, "release")
+            self.assertEqual(plan.args[3:7], ["--build-name", "2.3.4", "--build-number", "42"])
+        for key, value in (("flutterVersionName", "1x2x3"), ("flutterVersionCode", "-1"),
+                           ("flutterVersionCode", "2100000001")):
+            with self.subTest(key=key, value=value):
+                self.config["projectBuild"].update(flutterVersionName="", flutterVersionCode="")
+                self.config["projectBuild"][key] = value
+                with self.assertRaises(ValueError):
+                    prepare_project_build(self.config, "apk", "release")
+
+    def test_flutter_selected_signing_is_scoped_and_preflight_is_read_only(self):
+        self.flutter()
+        keystore = self.write("keys/test.jks")
+        self.config["signing"].update(keystorePath=str(keystore), keyAlias="fixture",
+                                      storePasswordEnv="PACKTOOL_TEST_STORE", keyPasswordEnv="PACKTOOL_TEST_KEY")
+        with patch.dict(os.environ, {"PACKTOOL_TEST_STORE": "store test", "PACKTOOL_TEST_KEY": "key test"}):
+            environment = os.environ.copy()
+            with patch("server.project_builds.DATA_ROOT", self.project / "tool-data"):
+                plan = prepare_project_build(self.config, "aab", "release")
+            self.assertFalse(Path(plan.env["GRADLE_USER_HOME"]).exists())
+            self.assertEqual(plan.env["PACK_TOOL_SIGNING_MODULE"], ":app")
+            self.assertEqual(plan.env["PACK_TOOL_SIGNING_KEY_PASSWORD"], "key test")
+            self.assertNotIn("store test", " ".join(plan.command))
+            self.assertEqual(os.environ, environment)
+            plan.prepare()
+            self.assertTrue((Path(plan.env["GRADLE_USER_HOME"]) / "init.d/packtool-signing.init.gradle").is_file())
+        with self.assertRaisesRegex(ValueError, "PACKTOOL_TEST_STORE"):
+            prepare_project_build(self.config, "apk", "debug")
 
     def test_react_native_uses_android_gradle_project(self):
         self.config["projectType"] = "react-native"

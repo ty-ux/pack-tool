@@ -76,7 +76,7 @@ PERMISSIONS = [
 
 DEFAULT_CONFIG = {
     "projectType": "uniapp",
-    "projectBuild": {"gradleModule": "app", "flavor": ""},
+    "projectBuild": {"gradleModule": "app", "flavor": "", "flutterVersionName": "", "flutterVersionCode": ""},
     "app": {
         "name": "新应用",
         "icon": "",

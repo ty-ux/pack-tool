@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .local_tools import android_sdk_environment, executable_name
+from .paths import DATA_ROOT, SCRIPTS_DIR
+from .signing import signing_error
 
 
 ANDROID_FORMATS = ("apk", "aab")
@@ -47,6 +49,12 @@ class ProjectBuild:
     @property
     def description(self) -> str:
         return f"{PROJECT_LABELS[self.project_type]} {self.platform.upper()} ({self.variant})"
+
+    def prepare(self) -> None:
+        if self.project_type == "flutter" and self.env.get("PACK_TOOL_SIGNING_MODULE") == ":app":
+            init_dir = Path(self.env["GRADLE_USER_HOME"]) / "init.d"
+            init_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(SCRIPTS_DIR / "android-signing.init.gradle", init_dir / "packtool-signing.init.gradle")
 
     def collect(self) -> Path:
         if self.project_type == "flutter" and self.platform == "apk":
@@ -135,6 +143,31 @@ def prepare_project_build(cfg: dict, platform: str, build_type: str) -> ProjectB
             raise ValueError("找不到 Flutter CLI，请填写 Flutter SDK 的 bin/flutter.bat 或配置 PATH")
         executable = Path(cli).expanduser().resolve()
         args = ["build", "apk" if platform == "apk" else "appbundle", f"--{build_type}"]
+        version_name = str(settings.get("flutterVersionName") or "").strip()
+        version_code = str(settings.get("flutterVersionCode") or "").strip()
+        if version_name:
+            if not re.fullmatch(r"[0-9]+(?:\.[0-9]+){2}", version_name):
+                raise ValueError("Flutter 版本号应为三段数字，例如 1.2.3")
+            args += ["--build-name", version_name]
+        if version_code:
+            if not re.fullmatch(r"[0-9]+", version_code) or not 1 <= int(version_code) <= 2100000000:
+                raise ValueError("Flutter 版本码应为 1 到 2100000000 的整数")
+            args += ["--build-number", version_code]
+        signing = cfg.get("signing") or {}
+        if str(signing.get("keystorePath") or "").strip():
+            if error := signing_error(cfg):
+                raise ValueError(error)
+            store_env = signing["storePasswordEnv"].strip()
+            key_env = str(signing.get("keyPasswordEnv") or "").strip() or store_env
+            env.update({
+                "GRADLE_USER_HOME": str(DATA_ROOT / "data" / "flutter-gradle"),
+                "PACK_TOOL_SIGNING_FILE": signing["keystorePath"].strip(),
+                "PACK_TOOL_SIGNING_ALIAS": signing["keyAlias"].strip(),
+                "PACK_TOOL_SIGNING_STORE_PASSWORD": os.environ[store_env],
+                "PACK_TOOL_SIGNING_KEY_PASSWORD": os.environ[key_env],
+                "PACK_TOOL_SIGNING_BUILD_TYPE": build_type,
+                "PACK_TOOL_SIGNING_MODULE": ":app",
+            })
         if flavor:
             args += ["--flavor", flavor]
         artifact_root = project / "build/app/outputs" / ("flutter-apk" if platform == "apk" else "bundle")

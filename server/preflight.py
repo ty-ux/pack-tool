@@ -46,7 +46,11 @@ def _project_preflight(cfg: dict) -> dict:
                        "detail": f"{plan.executable} {' '.join(plan.args)}"})
         checks.append({"id": "artifact-root", "group": group, "label": "产物目录", "status": "ok",
                        "detail": str(plan.output or plan.artifact_root)})
-        if plan.build_type == "release":
+        selected_signing = cfg["projectType"] == "flutter" and bool(str(cfg["signing"].get("keystorePath") or "").strip())
+        if selected_signing:
+            checks.append({"id": "selected-signing", "group": group, "label": "所选签名", "status": "ok",
+                           "detail": "使用当前应用选择的签名文件和密码环境变量。首次使用独立 Gradle 缓存时需要下载依赖。"})
+        elif plan.build_type == "release":
             checks.append({"id": "project-signing", "group": group, "label": "发行签名", "status": "warn",
                            "detail": "发行版沿用项目自身的 Gradle 签名配置，请确认密钥和构建变体。"})
     except (ValueError, OSError) as error:

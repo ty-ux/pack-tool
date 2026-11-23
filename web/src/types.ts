@@ -15,6 +15,8 @@ export interface AppConfig {
   projectBuild: {
     gradleModule: string
     flavor: string
+    flutterVersionName: string
+    flutterVersionCode: string
   }
   app: {
     name: string
