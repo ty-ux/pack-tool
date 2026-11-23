@@ -17,6 +17,7 @@ from logging.handlers import RotatingFileHandler
 from . import __version__
 from . import config as config_mod
 from .paths import LOGS_DIR, PACKAGES_DIR, PACKAGES_PATH
+from .storage import write_json
 
 SYNC_LOG = LOGS_DIR / "packages-sync.log"
 _logger_lock = threading.Lock()
@@ -105,9 +106,7 @@ def _load_raw() -> dict:
 
 
 def _write_raw(packages: list[dict], custom: list[dict]) -> None:
-    PACKAGES_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(PACKAGES_PATH, "w", encoding="utf-8") as f:
-        json.dump({"packages": packages, "custom": custom}, f, ensure_ascii=False, indent=4)
+    write_json(PACKAGES_PATH, {"packages": packages, "custom": custom})
 
 
 def load_packages() -> list[dict]:

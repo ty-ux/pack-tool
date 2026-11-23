@@ -1,10 +1,11 @@
 """API 路由：与旧版接口契约一致，新增 build/cancel 与 browse"""
 import os
+import json
 import subprocess
 from typing import Literal, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 from .. import adb as adb_mod
@@ -15,6 +16,8 @@ from .. import history as history_mod
 from .. import packages as packages_mod
 from .. import preflight as preflight_mod
 from .. import signing_keys
+from .. import config_transfer, data_safety
+from .. import preferences
 from ..builder import build_manager
 from ..local_tools import discover_tools
 from ..paths import BUILD_LOG
@@ -24,6 +27,80 @@ from ..wechat import NATIVE_TYPE, PLATFORM as WECHAT_PLATFORM, preview_file
 
 router = APIRouter(prefix="/api")
 CREATE_NO_WINDOW = 0x08000000
+
+
+class ImportConfigBody(BaseModel):
+    bundle: dict
+
+
+class PreferencesBody(BaseModel):
+    colorScheme: Literal["system", "light", "dark"]
+
+
+@router.get("/preferences.js")
+def preferences_script():
+    scheme = preferences.read()["colorScheme"]
+    # External, same-origin script works with desktop CSP and runs before first paint.
+    code = (f"document.documentElement.dataset.mode={json.dumps(scheme)};"
+            f"document.querySelector('meta[name=color-scheme]').content={json.dumps('light dark' if scheme == 'system' else scheme)};")
+    return Response(code, media_type="application/javascript", headers={"Cache-Control": "no-store"})
+
+
+@router.post("/preferences")
+def save_preferences(body: PreferencesBody):
+    return {"ok": True, **preferences.save(body.colorScheme)}
+
+
+def _transfer_bundle(body: ImportConfigBody) -> dict:
+    if len(json.dumps(body.bundle).encode("utf-8")) > 2 * 1024 * 1024:
+        raise HTTPException(413, "配置文件不能超过 2 MiB")
+    return body.bundle
+
+
+@router.get("/data/info")
+def get_data_info():
+    return {"ok": True, **data_safety.data_info()}
+
+
+@router.post("/data/backup")
+def backup_data():
+    if build_manager.status()["running"]:
+        raise HTTPException(409, "请等待构建结束后再备份")
+    try:
+        backup = data_safety.create_backup()
+        return {"ok": True, "name": backup.name}
+    except (OSError, ValueError) as error:
+        raise HTTPException(500, f"备份未完成，原始数据未改动: {error}") from None
+
+
+@router.get("/config/export")
+def export_profiles():
+    try:
+        return JSONResponse(config_transfer.export_config(), headers={
+            "Content-Disposition": 'attachment; filename="packtool-config.json"',
+            "Cache-Control": "no-store",
+        })
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from None
+
+
+@router.post("/config/import/preview")
+def preview_profiles(body: ImportConfigBody):
+    try:
+        return {"ok": True, "apps": config_transfer.preview_import(_transfer_bundle(body))}
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from None
+
+
+@router.post("/config/import")
+def import_profiles(body: ImportConfigBody):
+    if build_manager.status()["running"]:
+        raise HTTPException(409, "请等待构建结束后再导入配置")
+    try:
+        created = config_transfer.import_config(_transfer_bundle(body))
+        return {"ok": True, "created": created}
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from None
 
 
 # ---------------- 请求体 ----------------

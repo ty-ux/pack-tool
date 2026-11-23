@@ -1,0 +1,142 @@
+:root {
+  color-scheme: light dark;
+
+  /* Opal：近白画布 + 低饱和虹彩环境光，玻璃只负责透光和描边 */
+  --color-canvas: #e4e9ed;
+  --color-ink: #17181d;
+  --color-ink-raised: #23252c;
+  --color-on-ink: #f7f8fa;
+  --color-text: #16171c;
+  --color-text-secondary: #4d5058;
+  --color-text-muted: #5c6871;
+  --color-text-dim: #626e77;
+  --color-border: rgba(22, 24, 30, 0.10);
+  --color-border-soft: rgba(22, 24, 30, 0.06);
+  --color-border-hover: rgba(22, 24, 30, 0.24);
+  --color-border-strong: #8a8a8a;
+  --color-focus: #16171c;
+  --color-selection: rgba(22, 24, 30, 0.14);
+  --color-scrollbar: rgba(22, 24, 30, 0.22);
+  --color-chip: rgba(255, 255, 255, 0.62);
+  --color-primary-line: rgba(255, 255, 255, 0.16);
+
+  --color-success: #0c7a45;
+  --color-success-soft: rgba(18, 152, 90, 0.12);
+  --color-success-line: rgba(18, 152, 90, 0.28);
+  --color-warning: #8a5a00;
+  --color-warning-soft: rgba(196, 132, 0, 0.14);
+  --color-warning-line: rgba(196, 132, 0, 0.32);
+  --color-danger: #c22a1e;
+  --color-danger-soft: rgba(194, 42, 30, 0.12);
+  --color-danger-line: rgba(194, 42, 30, 0.28);
+  --color-info-soft: rgba(120, 186, 255, 0.16);
+  --color-info-line: rgba(66, 128, 200, 0.26);
+
+  --color-terminal: rgba(19, 21, 27, 0.90);
+  --color-terminal-solid: #14161c;
+  --color-terminal-raised: rgba(31, 34, 42, 0.72);
+  --color-terminal-line: rgba(255, 255, 255, 0.10);
+  --color-terminal-text: #e7e9ef;
+  --color-terminal-dim: #9599a5;
+  --color-terminal-idle: #5d6270;
+  --color-terminal-ok: #7fe0a8;
+  --color-terminal-warn: #f0cf7a;
+  --color-terminal-err: #ff9c92;
+
+  --color-nav-text: #4d5058;
+  --color-nav-text-strong: #16171c;
+  --color-nav-muted: #58646e;
+  --color-nav-badge: #17181d;
+  --color-nav-badge-text: #f7f8fa;
+
+  /* 玻璃填充、描边与投影 */
+  --glass-fill: #f7f8f9;
+  --glass-fill-strong: #f1f4f6;
+  --glass-fill-soft: #e9edf0;
+  --glass-fill-hover: #f3f6f8;
+  --glass-fill-active: #dde5ea;
+  --glass-line: #ccd5db;
+  --glass-line-soft: #d5dde2;
+  --glass-inset: none;
+  --glass-shadow: none;
+  --glass-shadow-soft: none;
+  --glass-blur: 18px;
+  --glass-sat: 180%;
+  --surface-solid: #f7f8f9;
+  --sider-solid: #e9edf0;
+  --selected-solid: #eef1f7;
+
+  /* 环境光：冷暖两端都点到，整体仍是近白 */
+  --ambient: none;
+  --sheen: none;
+
+  --sans: 'Geist', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --mono: 'Geist Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-1: 120ms;
+  --dur-2: 180ms;
+  --dur-3: 260ms;
+
+  --radius-1: 6px;
+  --radius-2: 10px;
+  --radius-3: 14px;
+  --radius-pill: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --space-10: 64px;
+
+  --shadow-1: none;
+  --shadow-2: none;
+  --shadow-focus: 0 0 0 3px rgba(22, 24, 30, 0.12);
+  --color-paper: var(--color-canvas); --color-paper-2: var(--glass-fill); --color-paper-3: var(--glass-fill-strong);
+  --color-ink-2: var(--color-text-secondary); --color-muted: var(--color-text-muted); --color-rule: var(--glass-line);
+  --color-accent: var(--color-ink); --color-accent-ink: var(--color-on-ink);
+  --font-display: var(--sans); --font-body: var(--sans); --font-outlier: var(--mono); --display-weight: 600;
+  --text-md: 1rem; --text-sm: 0.875rem; --text-display: 1.5rem; --text-section: 1.2rem; --text-title: 1rem;
+}
+:root[data-mode="light"] { color-scheme: light; }
+:root[data-mode="dark"] {
+  color-scheme: dark;
+  --color-canvas: #171d21; --color-ink: #b7c7d1; --color-ink-raised: #cbd9e1; --color-on-ink: #182126;
+  --color-text: #e2e8ec; --color-text-secondary: #b1bcc4; --color-text-muted: #a5b0b9; --color-text-dim: #8f9da7;
+  --color-border: #3c4952; --color-border-soft: #344049; --color-border-hover: #718590; --color-border-strong: #667681;
+  --color-focus: #b7c7d1; --color-selection: #435866; --color-scrollbar: #667681; --color-chip: #2b353c;
+  --color-success: #86c5a1; --color-success-soft: #243e32; --color-success-line: #486d58;
+  --color-warning: #d8b879; --color-warning-soft: #3d3424; --color-warning-line: #78613a;
+  --color-danger: #ef9b92; --color-danger-soft: #452b2a; --color-danger-line: #80514b;
+  --color-info-soft: #293944; --color-info-line: #4c677b;
+  --color-nav-text: #b1bcc4; --color-nav-text-strong: #e2e8ec; --color-nav-muted: #9aa8b2;
+  --color-nav-badge: #b7c7d1; --color-nav-badge-text: #182126;
+  --glass-fill: #222a2f; --glass-fill-strong: #2b353c; --glass-fill-soft: #1b2328;
+  --glass-fill-hover: #303e47; --glass-fill-active: #35444e; --glass-line: #3c4952; --glass-line-soft: #344049;
+  --surface-solid: #222a2f; --sider-solid: #1b2328; --selected-solid: #35444e;
+  --shadow-focus: 0 0 0 3px #536b7b;
+}
+@media (prefers-color-scheme: dark) {
+ :root:not([data-mode="light"]):not([data-mode="dark"]) {
+  color-scheme: dark;
+  --color-canvas: #171d21; --color-ink: #b7c7d1; --color-ink-raised: #cbd9e1; --color-on-ink: #182126;
+  --color-text: #e2e8ec; --color-text-secondary: #b1bcc4; --color-text-muted: #a5b0b9; --color-text-dim: #8f9da7;
+  --color-border: #3c4952; --color-border-soft: #344049; --color-border-hover: #718590; --color-border-strong: #667681;
+  --color-focus: #b7c7d1; --color-selection: #435866; --color-scrollbar: #667681; --color-chip: #2b353c;
+  --color-success: #86c5a1; --color-success-soft: #243e32; --color-success-line: #486d58;
+  --color-warning: #d8b879; --color-warning-soft: #3d3424; --color-warning-line: #78613a;
+  --color-danger: #ef9b92; --color-danger-soft: #452b2a; --color-danger-line: #80514b;
+  --color-info-soft: #293944; --color-info-line: #4c677b;
+  --color-nav-text: #b1bcc4; --color-nav-text-strong: #e2e8ec; --color-nav-muted: #9aa8b2;
+  --color-nav-badge: #b7c7d1; --color-nav-badge-text: #182126;
+  --glass-fill: #222a2f; --glass-fill-strong: #2b353c; --glass-fill-soft: #1b2328;
+  --glass-fill-hover: #303e47; --glass-fill-active: #35444e; --glass-line: #3c4952; --glass-line-soft: #344049;
+  --surface-solid: #222a2f; --sider-solid: #1b2328; --selected-solid: #35444e;
+  --shadow-focus: 0 0 0 3px #536b7b;
+}
+}

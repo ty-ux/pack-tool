@@ -3,6 +3,7 @@ import socket
 import threading
 import time
 import webbrowser
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,11 +18,18 @@ HOST = "127.0.0.1"
 
 
 def create_app(*, allow_dev_proxy: bool = True) -> FastAPI:
+    @asynccontextmanager
+    async def lifespan(app):
+        from .data_safety import ensure_data_version
+        ensure_data_version()
+        yield
+
     app = FastAPI(
         title="App 打包控制台",
         version=__version__,
         description="PackTool 本地打包服务",
         docs_url=None, redoc_url=None,
+        lifespan=lifespan,
     )
 
     # dev 模式（vite 5173 直连）CORS；生产同源走 proxy 或同源，无需放行

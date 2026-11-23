@@ -43,3 +43,4 @@ node_modules/
 .codex/
 .vscode/
 .idea/
+.hallmark/

@@ -9,6 +9,7 @@ import uuid
 from .config import DEFAULT_CONFIG, deep_merge
 from .paths import ACTIVE_APP_PATH, APPS_DIR, CONFIG_PATH
 from .signing import protect_config
+from .storage import write_json
 
 # 新建应用沿用的机器级路径。输出目录通常按项目设置。
 INHERITED_PATHS = ("hbuilderxCli", "integrateDir", "javaHome", "androidSdk", "adb", "flutterCli", "nodeDir")
@@ -30,9 +31,7 @@ def _read_json(path):
 
 
 def _write_json(path, data: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+    write_json(path, data)
 
 
 def _app_path(app_id: str):
@@ -91,12 +90,13 @@ def _ensure_store() -> None:
         legacy = _read_json(CONFIG_PATH) if CONFIG_PATH.exists() else None
         if legacy:
             deep_merge(cfg, legacy)
-            # 迁移后改名，避免误以为改 pack_config.json 还能生效
+        # 先成功保存新应用，再归档旧配置；写入失败时旧文件仍可重试迁移。
+        _write_json(ACTIVE_APP_PATH, {"id": _write_app(_new_id(), cfg)["id"]})
+        if legacy:
             try:
                 CONFIG_PATH.replace(CONFIG_PATH.with_name("pack_config.legacy.json"))
             except OSError:
                 pass
-        _write_json(ACTIVE_APP_PATH, {"id": _write_app(_new_id(), cfg)["id"]})
 
 
 def set_active(app_id: str) -> None:
