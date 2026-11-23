@@ -7,12 +7,37 @@
 import copy
 import datetime
 import json
+import logging
 import os
 import shutil
 import uuid
+import threading
+from logging.handlers import RotatingFileHandler
 
+from . import __version__
 from . import config as config_mod
-from .paths import PACKAGES_DIR, PACKAGES_PATH
+from .paths import LOGS_DIR, PACKAGES_DIR, PACKAGES_PATH
+
+SYNC_LOG = LOGS_DIR / "packages-sync.log"
+_logger_lock = threading.Lock()
+
+
+def _sync_logger() -> logging.Logger:
+    logger = logging.getLogger("packtool.packages")
+    with _logger_lock:
+        if not logger.handlers:
+            try:
+                SYNC_LOG.parent.mkdir(parents=True, exist_ok=True)
+                handler = RotatingFileHandler(SYNC_LOG, maxBytes=2 * 1024 * 1024,
+                                              backupCount=3, encoding="utf-8")
+            except OSError:
+                # 日志目录不可写时仍执行同步，并在服务终端记录诊断。
+                handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+            logger.addHandler(handler)
+            logger.setLevel(logging.INFO)
+            logger.propagate = False
+    return logger
 
 # 可管理依赖包清单：id 为稳定标识；required 的包不可取消勾选
 DEFAULT_PACKAGES = [
@@ -236,7 +261,13 @@ def sync_packages(log=None) -> tuple[bool, list[dict], dict]:
     log: 可选回调 (str) -> None，用于把进度写入构建日志。
     返回 (是否全部成功, 每包结果列表, 汇总 dict)。
     """
+    logger = _sync_logger()
+    sync_id = uuid.uuid4().hex[:12]
+    logger.info("[%s] 开始同步 PackTool=%s source=%s", sync_id, __version__, PACKAGES_DIR)
+
     def emit(msg: str) -> None:
+        level = logging.ERROR if "[ERR]" in msg else logging.WARNING if "[WARN]" in msg else logging.INFO
+        logger.log(level, "[%s] %s", sync_id, msg)
         if log:
             log(msg)
 
@@ -244,6 +275,7 @@ def sync_packages(log=None) -> tuple[bool, list[dict], dict]:
     summary = {"copy": 0, "remove": 0, "skip": 0, "error": 0}
     try:
         libs = _libs_dir()
+        logger.info("[%s] target=%s", sync_id, libs)
         packages = load_packages()
         managed = {p["file"]: p for p in packages}
 
@@ -281,6 +313,7 @@ def sync_packages(log=None) -> tuple[bool, list[dict], dict]:
                         emit(f"[{_now()}] [OK]   同步 {p['label']} ({p['file']})")
                         summary["copy"] += 1
             except OSError as e:
+                logger.exception("[%s] 文件操作失败 source=%s target=%s", sync_id, src, dst)
                 item["action"] = "error"
                 item["message"] = f"同步失败: {e}"
                 emit(f"[{_now()}] [ERR] {p['label']} 同步失败: {e}")
@@ -294,7 +327,9 @@ def sync_packages(log=None) -> tuple[bool, list[dict], dict]:
             emit(f"[{_now()}] [INFO] libs 内存在清单外文件（未处理，保留）: {', '.join(extra)}")
     except Exception as e:
         emit(f"[{_now()}] [ERR] 依赖包同步中断: {e}")
-        return False, results, {**summary, "error": 1}
+        logger.exception("[%s] 同步中断", sync_id)
+        return False, results, {**summary, "error": summary["error"] + 1, "message": str(e)}
 
     ok = summary["error"] == 0
+    logger.info("[%s] 同步结束 ok=%s summary=%s", sync_id, ok, summary)
     return ok, results, summary

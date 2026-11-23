@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   App,
+  Alert,
   Button,
   Card,
   Checkbox,
@@ -18,6 +19,7 @@ import { CheckCircleOutlined, InboxOutlined, PlusOutlined, SyncOutlined } from '
 import type { TableProps, UploadFile } from 'antd'
 import {
   deletePackage,
+  downloadPackageSyncLog,
   getPackages,
   savePackages,
   syncPackages,
@@ -43,6 +45,8 @@ export function PackagesPage() {
   const [items, setItems] = useState<PackageItem[]>([])
   const [syncResults, setSyncResults] = useState<PackageSyncResult[] | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState('')
+  const [downloading, setDownloading] = useState(false)
   // 添加弹窗状态
   const [modalOpen, setModalOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -73,6 +77,8 @@ export function PackagesPage() {
   /** 保存勾选并执行一次同步对齐（APK 打包前也会自动执行同样的同步） */
   const handleSaveAndSync = async () => {
     setSyncing(true)
+    setSyncError('')
+    setSyncResults(null)
     try {
       const saved = await savePackages(items.map(({ id, enabled }) => ({ id, enabled })))
       if (!saved.ok) {
@@ -82,7 +88,8 @@ export function PackagesPage() {
       setItems(saved.packages)
       const res = await syncPackages()
       setSyncResults(res.results)
-      if (res.summary.error > 0) {
+      setSyncError(res.error || '')
+      if (!res.ok || res.summary.error > 0) {
         message.error(`同步完成，${res.summary.error} 个包失败，请查看下方结果`)
       } else {
         message.success(
@@ -116,15 +123,37 @@ export function PackagesPage() {
       form.resetFields()
       setFileList([])
       await reload()
+      setSyncError('')
+      setSyncResults(null)
       const sync = await syncPackages()
       setSyncResults(sync.results)
-      if (sync.summary.error > 0) {
+      setSyncError(sync.error || '')
+      if (!sync.ok || sync.summary.error > 0) {
         message.warning('已添加，但同步时有错误，请查看下方同步结果')
       }
     } catch (e) {
       message.error(e instanceof Error ? e.message : '上传失败')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleDownloadLog = async () => {
+    setDownloading(true)
+    try {
+      const blob = await downloadPackageSyncLog()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'packages-sync.log'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '日志下载失败')
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -289,6 +318,11 @@ export function PackagesPage() {
         }}
       />
 
+      <p className="table-note">
+        <Button onClick={handleDownloadLog} loading={downloading}>下载同步日志</Button>
+        {' '}日志包含本机文件路径，提交 issue 前可检查内容。
+      </p>
+      {syncError && <Alert type="error" showIcon message="依赖包同步失败" description={syncError} />}
       {syncResults && (
         <>
           <div className="section-title">

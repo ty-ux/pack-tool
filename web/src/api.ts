@@ -27,7 +27,7 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, allowBusinessFailure = false): Promise<T> {
   let res: Response
   try {
     res = await fetch(path, init)
@@ -40,7 +40,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   } catch {
     /* 非 JSON 响应 */
   }
-  if (data && data.ok === false) {
+  if (data && data.ok === false && !allowBusinessFailure) {
     throw new ApiError(data.error || data.message || `请求失败 (${res.status})`, res.status)
   }
   if (!res.ok) {
@@ -83,7 +83,16 @@ export const getLocalTools = (signal: AbortSignal) =>
 export const getPackages = () => api.get<PackagesPayload>('/api/packages')
 export const savePackages = (packages: { id: string; enabled: boolean }[]) =>
   api.post<PackagesPayload>('/api/packages', { packages })
-export const syncPackages = () => api.post<PackageSyncPayload>('/api/packages/sync')
+// 同步的业务失败包含逐包结果，需要交给页面展示；HTTP 错误仍由 request 抛出。
+export const syncPackages = () => request<PackageSyncPayload>('/api/packages/sync', { method: 'POST' }, true)
+export const downloadPackageSyncLog = async () => {
+  const res = await fetch('/api/packages/sync-log', { cache: 'no-store' })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new ApiError(data?.detail || `日志下载失败 (HTTP ${res.status})`, res.status)
+  }
+  return res.blob()
+}
 /** 上传自定义依赖包：FormData 走 multipart，不能带 JSON Content-Type */
 export const uploadPackage = (form: FormData) =>
   request<PackageUploadPayload>('/api/packages/upload', { method: 'POST', body: form })

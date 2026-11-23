@@ -262,7 +262,18 @@ def post_packages(body: SavePackagesBody):
 @router.post("/packages/sync")
 def sync_packages():
     ok, results, summary = packages_mod.sync_packages()
-    return {"ok": ok, "results": results, "summary": summary}
+    error = summary.get("message") or "；".join(
+        item["message"] for item in results if item["action"] == "error"
+    )
+    return {"ok": ok, "results": results, "summary": summary, "error": error if not ok else ""}
+
+
+@router.get("/packages/sync-log")
+def package_sync_log():
+    if not packages_mod.SYNC_LOG.is_file():
+        raise HTTPException(404, "暂无依赖包同步日志，请先执行一次同步")
+    return FileResponse(packages_mod.SYNC_LOG, media_type="text/plain; charset=utf-8",
+                        filename="packages-sync.log", headers={"Cache-Control": "no-store"})
 
 
 def _fix_multipart_text(value: str) -> str:
