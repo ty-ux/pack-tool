@@ -24,6 +24,15 @@ try {
     throw new Error('Missing signing verifier in the bundled backend')
   }
   fs.mkdirSync(userData)
+  const workspace = path.join(userData, 'workspace')
+  fs.mkdirSync(path.join(workspace, 'config'), { recursive: true })
+  fs.writeFileSync(path.join(workspace, 'config', 'preferences.json'), '{"colorScheme":"dark"}')
+  fs.writeFileSync(path.join(workspace, 'data-version.json'), '{"appVersion":"2.5.0"}')
+  const gradleHome = path.join(workspace, 'data', 'flutter-gradle')
+  fs.mkdirSync(path.join(gradleHome, 'caches'), { recursive: true })
+  fs.mkdirSync(path.join(gradleHome, 'init.d'))
+  fs.writeFileSync(path.join(gradleHome, 'caches', 'fixture.jar'), 'regenerable cache')
+  fs.writeFileSync(path.join(gradleHome, 'init.d', 'private.gradle'), '// user repository settings')
   const jdk = path.join(testRoot, 'test JDK')
   fs.mkdirSync(path.join(jdk, 'bin'), { recursive: true })
   for (const exe of ['java.exe', 'javac.exe']) fs.writeFileSync(path.join(jdk, 'bin', exe), '')
@@ -46,7 +55,21 @@ try {
     cwd: testRoot,
     env: { ...process.env, PACK_TOOL_SMOKE_DIR: userData, PACK_TOOL_SMOKE_PROJECT: project, JAVA_HOME: jdk },
   })
-  const workspace = path.join(userData, 'workspace')
+  run(process.env.PACK_TOOL_PYTHON || 'python', ['-c', [
+    'import json, pathlib, sys, zipfile',
+    'root = pathlib.Path(sys.argv[1])',
+    'backups = list((root / "backups").glob("*.zip"))',
+    'assert len(backups) == 1, backups',
+    'with zipfile.ZipFile(backups[0]) as archive:',
+    '    assert "data/flutter-gradle/caches/fixture.jar" not in archive.namelist()',
+    '    assert archive.read("data/flutter-gradle/init.d/private.gradle") == b"// user repository settings"',
+    '    assert json.loads(archive.read("config/preferences.json"))["colorScheme"] == "dark"',
+    'assert (root / "data/flutter-gradle/caches/fixture.jar").read_text() == "regenerable cache"',
+    'assert json.loads((root / "config/preferences.json").read_text())["colorScheme"] == "dark"',
+  ].join('\n'), workspace])
+  if (!fs.readFileSync(path.join(userData, 'logs', 'startup.log'), 'utf8').includes('Local service ready')) {
+    throw new Error('Startup log did not record backend readiness')
+  }
   for (const file of ['config/active_app.json', 'data/build_history.db']) {
     if (!fs.existsSync(path.join(workspace, file))) throw new Error('Missing user data: ' + file)
   }

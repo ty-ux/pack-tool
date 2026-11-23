@@ -62,6 +62,7 @@ async function build() {
 
   fs.mkdirSync(stage, { recursive: true })
   fs.copyFileSync(path.join(__dirname, 'main.cjs'), path.join(stage, 'main.cjs'))
+  fs.copyFileSync(path.join(__dirname, 'startup.cjs'), path.join(stage, 'startup.cjs'))
   fs.copyFileSync(path.join(__dirname, 'assets', 'pack-tool.ico'), path.join(stage, 'pack-tool.ico'))
   fs.writeFileSync(path.join(stage, 'package.json'), JSON.stringify({
     name: 'PackTool',

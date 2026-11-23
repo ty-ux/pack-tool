@@ -1,4 +1,5 @@
 import json
+import os
 import sqlite3
 import tempfile
 import unittest
@@ -64,6 +65,31 @@ class DataManagementTest(unittest.TestCase):
             with self.assertRaises(OSError):
                 data_safety.ensure_data_version(self.root, "2.6.0")
         self.assertEqual(json.loads(marker.read_text())["appVersion"], "2.5.0")
+
+    def test_backup_prunes_gradle_caches_but_keeps_user_gradle_settings(self):
+        for relative in ("data/flutter-gradle/caches/modules/dependency.jar",
+                         "data/flutter-gradle/wrapper/dists/gradle.zip",
+                         "data/flutter-gradle/init.d/private-repository.gradle",
+                         "data/flutter-gradle/gradle.properties", "data/custom-user-data.txt"):
+            file = self.root / relative
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_bytes(b"preserve original")
+        scandir = os.scandir
+
+        def checked_scandir(path):
+            if Path(path).name in ("caches", "wrapper"):
+                raise AssertionError("Backup must not traverse regenerable Gradle caches")
+            return scandir(path)
+
+        with patch.object(data_safety.os, "scandir", side_effect=checked_scandir):
+            backup = data_safety.create_backup(self.root)
+        with zipfile.ZipFile(backup) as archive:
+            self.assertNotIn("data/flutter-gradle/caches/modules/dependency.jar", archive.namelist())
+            self.assertNotIn("data/flutter-gradle/wrapper/dists/gradle.zip", archive.namelist())
+            self.assertEqual(archive.read("data/flutter-gradle/init.d/private-repository.gradle"), b"preserve original")
+            self.assertEqual(archive.read("data/flutter-gradle/gradle.properties"), b"preserve original")
+            self.assertEqual(archive.read("data/custom-user-data.txt"), b"preserve original")
+        self.assertTrue((self.root / "data/flutter-gradle/caches/modules/dependency.jar").is_file())
 
     def test_new_workspace_does_not_create_unneeded_backup(self):
         data_safety.ensure_data_version(self.root, "2.6.0")
