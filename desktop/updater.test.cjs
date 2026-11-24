@@ -29,7 +29,8 @@ async function fixture(t, handler) {
     prepare: async (_helper, plan) => {
       prepared++
       const value = JSON.parse(await fs.readFile(plan, 'utf8'))
-      assert.equal(path.dirname(value.stage), path.dirname(installDir))
+      // Hosted Windows TEMP can contain the RUNNER~1 alias; production canonicalizes it.
+      assert.equal(path.dirname(value.stage), path.dirname(await fs.realpath(installDir)))
       assert.equal(value.target, await fs.realpath(installDir))
       await fs.mkdir(value.stage)
     },
@@ -56,7 +57,8 @@ test('real HTTP check and download validate hash before preparing, leaving old f
     else res.end(bytes)
   })
   assert.equal((await f.manager.check()).phase, 'available')
-  assert.equal((await f.manager.download()).phase, 'ready')
+  const downloaded = await f.manager.download()
+  assert.equal(downloaded.phase, 'ready', downloaded.error)
   assert.equal(f.prepared(), 1)
   assert.deepEqual(calls, ['/repos/ty-ux/pack-tool/releases/latest', '/repos/ty-ux/pack-tool/releases/assets/123'])
   assert.equal(await fs.readFile(path.join(f.installDir, 'original.txt'), 'utf8'), 'old program')
