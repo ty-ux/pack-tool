@@ -35,6 +35,7 @@ public class Program { public static int Main(string[] args) {
   if (File.Exists(Path.Combine(here, "fail-start"))) return 42;
   if (args.Length > 0 && args[0].StartsWith("--update-id=")) {
     File.WriteAllText(Path.Combine(data, "updates", args[0].Substring(12), "ready"), "2.7.0");
+    return 0; // Successful startup may be immediately followed by a user exit.
   } else { File.WriteAllText(Path.Combine(data, "old-started"), "yes"); }
   Thread.Sleep(1200); return 0;
 } }`

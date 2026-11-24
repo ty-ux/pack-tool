@@ -7,6 +7,7 @@ const { createStartupLog, waitForPort } = require('./startup.cjs')
 const { UpdateManager, createElectronFetch } = require('./updater.cjs')
 
 const smokeTest = process.argv.includes('--smoke-test')
+const updateId = process.argv.find(arg => /^--update-id=[a-f0-9]{32}$/.test(arg))?.slice('--update-id='.length)
 if (smokeTest && process.env.PACK_TOOL_SMOKE_DIR) {
   app.setPath('userData', process.env.PACK_TOOL_SMOKE_DIR)
 }
@@ -23,7 +24,7 @@ function fail(error) {
   exitCode = 1
   console.error(error)
   startupLog?.write(error.stack || error.message)
-  if (!smokeTest) {
+  if (!smokeTest && !updateId) {
     dialog.showErrorBox('PackTool 启动失败', error.message + (startupLog ? '\n\n启动日志：' + startupLog.file : ''))
   }
   if (backend) app.quit()
@@ -111,7 +112,6 @@ async function openWindow() {
   })
 
   await mainWindow.loadURL(origin)
-  const updateId = process.argv.find(arg => /^--update-id=[a-f0-9]{32}$/.test(arg))?.slice('--update-id='.length)
   if (updateId) {
     const deadline = Date.now() + 10_000
     while (!await contents.executeJavaScript('Boolean(document.querySelector("#root")?.childElementCount)')) {

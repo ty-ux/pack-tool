@@ -135,6 +135,7 @@ try {
     $deadline = [DateTime]::UtcNow.AddMinutes(16)
     while (-not (Test-Path -LiteralPath $plan.ready)) {
         Start-Sleep -Milliseconds 500
+        if (Test-Path -LiteralPath $plan.ready) { break }
         if ($newProcess.HasExited) { throw 'The new version exited before startup completed' }
         if ([DateTime]::UtcNow -gt $deadline) { throw 'The new version did not report successful startup' }
     }
