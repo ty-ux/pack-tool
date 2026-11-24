@@ -145,8 +145,13 @@ class UpdateManager {
       const work = path.join(this.root, id)
       const planFile = path.join(work, 'plan.json')
       const plan = JSON.parse(fs.readFileSync(planFile, 'utf8'))
+      // Match promises.realpath's native resolution, including Windows 8.3 aliases.
+      const actualTarget = fs.realpathSync.native(plan.target)
+      const currentTarget = fs.realpathSync.native(this.installDir)
+      const sameTarget = process.platform === 'win32'
+        ? actualTarget.toLowerCase() === currentTarget.toLowerCase() : actualTarget === currentTarget
       if (plan.id !== id || !newer(plan.version, this.version) ||
-          plan.target !== fs.realpathSync(this.installDir) || !fs.existsSync(plan.stage) ||
+          !sameTarget || !fs.existsSync(plan.stage) ||
           plan.zip !== path.join(work, 'update.zip') || !fs.existsSync(plan.zip)) return
       Object.assign(this, { plan, planFile, work, helper: path.join(work, 'apply-update.ps1') })
       this.release = { version: plan.version, size: fs.statSync(plan.zip).size, sha256: plan.sha256, notes: '' }
