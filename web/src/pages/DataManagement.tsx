@@ -4,6 +4,7 @@ import { DownloadOutlined, UploadOutlined } from '@ant-design/icons'
 import { api, downloadDiagnostics, reportClientEvent } from '../api'
 import { useConfig } from '../store/config'
 import { useAppearance, type ColorScheme } from '../store/appearance'
+import { SoftwareUpdate } from '../components/SoftwareUpdate'
 
 interface DataInfo { root: string; version: string; backups: { name: string; size: number }[] }
 interface Preview { name: string; projectType: string; missingPaths: string[] }
@@ -57,6 +58,7 @@ export function DataManagementPage({ building }: { building: boolean }) {
         disabled={!!busy} onChange={(value) => { void run('theme', () => setScheme(value)) }} />
       <p className="table-note">主题选择保存在本机，重新启动后继续使用。</p>
     </Card>
+    <SoftwareUpdate building={building} />
     <Card title="全局操作日志">
       <p className="hint">自动记录各页面的后台请求、操作结果、耗时、构建任务和异常；页面切换与前端异常也会记录。失败请求会显示日志编号，方便定位同一次操作。</p>
       {logInfo && <Descriptions column={1} size="small">
@@ -79,7 +81,7 @@ export function DataManagementPage({ building }: { building: boolean }) {
           await api.post('/api/open-dir', { dir: logInfo!.directory })
         }) }}>打开日志目录</Button>
       </div>
-      <p className="hint">导出包含全局日志、启动日志、依赖同步日志及最近 10 次构建日志，每个文件最多取末尾 1 MiB，并附截断说明。不会打包配置、数据库或证书文件；日志仍可能包含本机路径和构建工具输出，提交 issue 前请检查。</p>
+      <p className="hint">导出包含全局日志、启动与更新日志、依赖同步日志及最近 10 次构建日志，每个文件最多取末尾 1 MiB，并附截断说明。不会打包配置、数据库或证书文件；日志仍可能包含本机路径和构建工具输出，提交 issue 前请检查。</p>
     </Card>
     <Card title="本机数据与升级保护">
       {error ? <Alert type="error" message={error} action={<Button onClick={() => { void load() }}>重试</Button>} />
@@ -89,7 +91,7 @@ export function DataManagementPage({ building }: { building: boolean }) {
             <Descriptions.Item label="用户数据目录"><span className="data-path">{info.root}</span></Descriptions.Item>
             <Descriptions.Item label="升级备份">{info.backups.length ? `${info.backups.length} 份` : '暂无备份'}</Descriptions.Item>
           </Descriptions>
-          <p className="hint">新版首次启动前会备份配置、依赖包、日志、历史和默认产物。备份失败时停止启动，保留原始数据。更新程序时请先退出 PackTool，再解压新版。</p>
+          <p className="hint">新版首次启动前会备份配置、依赖包、日志、历史和默认产物。备份失败时停止启动，保留原始数据。桌面版可使用上方的软件更新；手动替换程序时请先退出 PackTool。</p>
           <p className="hint">备份保存在数据目录的 backups 文件夹，不自动清理。恢复时先退出程序并另外备份当前数据，再从 ZIP 中还原需要的目录。本机备份可能包含敏感信息，不用于公开提交 issue。</p>
           <div className="data-actions">
             <Button disabled={!!busy || building} loading={busy === 'backup'} onClick={() => { void run('backup', async () => {

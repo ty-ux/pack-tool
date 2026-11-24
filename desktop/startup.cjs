@@ -2,9 +2,9 @@ const { createInterface } = require('node:readline')
 const { appendFileSync, existsSync, mkdirSync, renameSync, rmSync, statSync } = require('node:fs')
 const path = require('node:path')
 
-function createStartupLog(directory) {
+function createStartupLog(directory, name = 'startup.log') {
   mkdirSync(directory, { recursive: true })
-  const file = path.join(directory, 'startup.log')
+  const file = path.join(directory, name)
   if (existsSync(file) && statSync(file).size >= 2 * 1024 * 1024) {
     rmSync(file + '.1', { force: true })
     renameSync(file, file + '.1')

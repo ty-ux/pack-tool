@@ -140,7 +140,7 @@ def diagnostic_bundle() -> bytes:
     # Desktop startup logs live beside workspace, not inside the versioned data.
     desktop_logs = DATA_ROOT.parent / "logs"
     if DATA_ROOT.name == "workspace":
-        candidates.extend(desktop_logs / name for name in ("startup.log", "startup.log.1"))
+        candidates.extend(desktop_logs / name for name in ("startup.log", "startup.log.1", "update.log", "update.log.1"))
     report = {"version": __version__, "createdAt": datetime.datetime.now().isoformat(), "files": [],
               "note": "包含本机路径和构建工具输出，请在提交 issue 前检查内容。每个日志最多导出末尾 1 MiB；不含配置和凭据文件。"}
     output = io.BytesIO()

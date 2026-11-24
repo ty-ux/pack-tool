@@ -1,6 +1,6 @@
 {
   "name": "pack-tool-desktop",
-  "version": "2.6.2",
+  "version": "2.7.0",
   "private": true,
   "license": "MIT",
   "main": "main.cjs",
@@ -8,7 +8,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "test": "node --test startup.test.cjs",
+    "test": "node --test startup.test.cjs updater.test.cjs update-install.test.cjs",
     "package:windows": "node package-windows.cjs",
     "test:windows": "node smoke-windows.cjs"
   },

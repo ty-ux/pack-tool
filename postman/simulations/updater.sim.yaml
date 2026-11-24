@@ -1,0 +1,7 @@
+simulation: updater
+routing: path
+mocks:
+  - name: github-releases
+    routeKey: github
+    origin: [api.github.com]
+    path: postman/mocks/github-releases/config.yaml

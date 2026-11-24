@@ -899,3 +899,9 @@ p, .hint { text-wrap: pretty; }
 
 /* Ant Design's generated rules must not dim the keyboard focus ring. */
 .ant-app :focus-visible { outline: 2px solid var(--color-focus) !important; outline-offset: 2px !important; }
+/* Native progress retains its accessible download semantics in both themes. */
+.update-progress { display: grid; gap: 6px; margin-block: 12px; }
+.update-progress progress { width: 100%; accent-color: var(--color-focus); }
+.update-notes { margin-block: 16px; }
+.update-notes summary { cursor: pointer; }
+.update-notes pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; max-height: 240px; overflow: auto; }

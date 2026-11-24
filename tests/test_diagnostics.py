@@ -144,10 +144,12 @@ class DiagnosticsTest(unittest.IsolatedAsyncioTestCase):
         desktop = self.root.parent / "logs"
         desktop.mkdir()
         (desktop / "startup.log").write_text("desktop boot diagnostic")
+        (desktop / "update.log").write_text("update verified and installed")
         with zipfile.ZipFile(io.BytesIO(diagnostics.diagnostic_bundle())) as archive:
             self.assertIn("logs/application.log.1", archive.namelist())
             self.assertIn("previous operation", archive.read("logs/application.log.1").decode())
             self.assertEqual(archive.read("desktop/startup.log"), b"desktop boot diagnostic")
+            self.assertEqual(archive.read("desktop/update.log"), b"update verified and installed")
             exported = archive.read("logs/builds/1.log").decode()
             self.assertNotIn("old-build-secret", exported)
             self.assertNotIn("old-encrypted-secret", exported)
