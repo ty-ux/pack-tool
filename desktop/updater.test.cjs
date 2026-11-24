@@ -145,6 +145,23 @@ test('a verified pending download survives restart and a changed archive cannot 
   await assert.rejects(fs.stat(restarted.pendingFile))
 })
 
+test('installing a pending package after restart waits for the current application PID', async t => {
+  const f = await fixture(t, (req, res) => res.end(req.url.endsWith('/latest') ? JSON.stringify(release()) : bytes))
+  await f.manager.check(); await f.manager.download()
+  f.manager.plan.oldPid = 2147483646
+  await fs.writeFile(f.manager.planFile, JSON.stringify(f.manager.plan))
+  const restarted = new UpdateManager({ version: '2.6.2', userData: f.userData, installDir: f.installDir,
+    executable: path.join(f.installDir, 'PackTool.exe'), supported: true,
+    launch: () => {
+      const plan = JSON.parse(require('node:fs').readFileSync(restarted.planFile, 'utf8'))
+      assert.equal(plan.oldPid, process.pid)
+      throw new Error('test ends before spawning helper')
+    },
+  })
+  assert.equal((await restarted.install()).phase, 'ready')
+  assert.match(restarted.snapshot().error, /test ends/)
+})
+
 test('Electron transport follows trusted redirects synchronously and streams the response', async () => {
   const { EventEmitter } = require('node:events')
   const { Readable } = require('node:stream')

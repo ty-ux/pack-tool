@@ -264,6 +264,9 @@ class UpdateManager {
     this.set({ phase: 'installing', error: '' })
     try {
       if (await hashFile(this.plan.zip) !== this.plan.sha256) throw new Error('更新包已改变，请重新下载')
+      // A download may have been prepared in a previous app session.
+      this.plan.oldPid = process.pid
+      await fsp.writeFile(this.planFile, JSON.stringify(this.plan), 'utf8')
       await fsp.rm(this.plan.armed, { force: true })
       const child = this.launch('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
         '-File', this.helper, '-PlanPath', this.planFile, '-Mode', 'Install'], {
