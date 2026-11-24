@@ -61,8 +61,9 @@ async function build() {
   fs.renameSync(path.join(backend, 'backend.exe'), path.join(backend, 'pack-tool-backend.exe'))
 
   fs.mkdirSync(stage, { recursive: true })
-  fs.copyFileSync(path.join(__dirname, 'main.cjs'), path.join(stage, 'main.cjs'))
-  fs.copyFileSync(path.join(__dirname, 'startup.cjs'), path.join(stage, 'startup.cjs'))
+  for (const file of ['main.cjs', 'startup.cjs', 'updater.cjs', 'preload.cjs', 'apply-update.ps1']) {
+    fs.copyFileSync(path.join(__dirname, file), path.join(stage, file))
+  }
   fs.copyFileSync(path.join(__dirname, 'assets', 'pack-tool.ico'), path.join(stage, 'pack-tool.ico'))
   fs.writeFileSync(path.join(stage, 'package.json'), JSON.stringify({
     name: 'PackTool',
@@ -83,6 +84,7 @@ async function build() {
     extraResource: [backend],
   })
   fs.copyFileSync(path.join(root, 'LICENSE'), path.join(appDir, 'LICENSE.pack-tool.txt'))
+  fs.writeFileSync(path.join(appDir, 'packtool-release.json'), JSON.stringify({ version: pkg.version, platform: 'win32', arch: 'x64' }))
   copyWebLicenses(path.join(appDir, 'third-party-licenses', 'web'))
   runPython([
     '-c',

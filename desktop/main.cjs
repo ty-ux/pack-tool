@@ -1,11 +1,13 @@
-const { app, BrowserWindow, dialog } = require('electron')
+const { app, BrowserWindow, dialog, ipcMain, session, net } = require('electron')
 const { spawn } = require('node:child_process')
 const { randomBytes } = require('node:crypto')
-const { mkdirSync } = require('node:fs')
+const { mkdirSync, writeFileSync } = require('node:fs')
 const path = require('node:path')
 const { createStartupLog, waitForPort } = require('./startup.cjs')
+const { UpdateManager, createElectronFetch } = require('./updater.cjs')
 
 const smokeTest = process.argv.includes('--smoke-test')
+const updateId = process.argv.find(arg => /^--update-id=[a-f0-9]{32}$/.test(arg))?.slice('--update-id='.length)
 if (smokeTest && process.env.PACK_TOOL_SMOKE_DIR) {
   app.setPath('userData', process.env.PACK_TOOL_SMOKE_DIR)
 }
@@ -16,12 +18,13 @@ let stopping = false
 let exitCode = 0
 let stopTimer
 let startupLog
+let updater
 
 function fail(error) {
   exitCode = 1
   console.error(error)
   startupLog?.write(error.stack || error.message)
-  if (!smokeTest) {
+  if (!smokeTest && !updateId) {
     dialog.showErrorBox('PackTool 启动失败', error.message + (startupLog ? '\n\n启动日志：' + startupLog.file : ''))
   }
   if (backend) app.quit()
@@ -66,9 +69,34 @@ async function openWindow() {
     minHeight: 560,
     show: false,
     autoHideMenuBar: true,
-    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'preload.cjs') },
   })
   const contents = mainWindow.webContents
+  const updateLog = createStartupLog(path.join(app.getPath('userData'), 'logs'), 'update.log')
+  const updateSession = session.fromPartition('packtool-updater')
+  updater = new UpdateManager({
+    version: app.getVersion(), userData: app.getPath('userData'),
+    installDir: path.dirname(app.getPath('exe')), executable: app.getPath('exe'),
+    supported: app.isPackaged && process.platform === 'win32' && process.arch === 'x64' && !smokeTest,
+    fetchImpl: createElectronFetch(net, updateSession), log: updateLog.write,
+    canInstall: async () => {
+      const response = await fetch(origin + '/api/status', {
+        headers: { 'X-Pack-Tool-Token': token }, signal: AbortSignal.timeout(5000),
+      })
+      if (!response.ok) throw new Error('无法确认构建状态，请稍后重试')
+      const status = await response.json()
+      return status.running === false
+    },
+    quit: () => app.quit(),
+  })
+  for (const action of ['state', 'check', 'download', 'cancel', 'install']) {
+    ipcMain.handle('packtool:update:' + action, (event) => {
+      // Accept only our window's main frame. No paths, URLs or shell commands cross IPC.
+      if (event.sender !== contents || event.senderFrame !== contents.mainFrame ||
+          new URL(event.senderFrame.url).origin !== origin) throw new Error('不受信任的更新请求')
+      return action === 'state' ? updater.snapshot() : updater[action]()
+    })
+  }
   const webSession = contents.session
   await webSession.setProxy({ mode: 'direct' })
   webSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
@@ -84,6 +112,17 @@ async function openWindow() {
   })
 
   await mainWindow.loadURL(origin)
+  if (updateId) {
+    const deadline = Date.now() + 10_000
+    while (!await contents.executeJavaScript('Boolean(document.querySelector("#root")?.childElementCount)')) {
+      if (Date.now() > deadline) throw new Error('更新后的界面未能加载')
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    const updates = path.join(app.getPath('userData'), 'updates', updateId)
+    // The installer creates this folder before launching us; never create arbitrary argument paths.
+    writeFileSync(path.join(updates, 'ready'), app.getVersion(), 'utf8')
+    startupLog.write('Updated application ready: ' + app.getVersion())
+  }
   if (!smokeTest) {
     mainWindow.show()
     return
@@ -96,6 +135,12 @@ async function openWindow() {
     '.then(([apps, history]) => apps.ok && history.ok && document.querySelector("#root")?.childElementCount > 0)',
   )
   if (!ready) throw new Error('React, application configuration or build history did not load')
+  const updateBridge = await contents.executeJavaScript(`(async () => {
+    const state = await window.packToolUpdate.state()
+    return state.currentVersion === ${JSON.stringify(app.getVersion())} && state.supported === false &&
+      typeof window.packToolUpdate.install === 'function' && typeof window.require === 'undefined'
+  })()`)
+  if (!updateBridge) throw new Error('Isolated updater preload did not load')
   const discoveredJdk = await contents.executeJavaScript(`
     fetch('/api/local-tools').then(response => response.json()).then(result =>
       result.ok && result.tools.javaHome.find(candidate => candidate.source === 'JAVA_HOME')?.path
@@ -233,6 +278,7 @@ if (!app.requestSingleInstanceLock()) {
   })
   app.on('window-all-closed', () => app.quit())
   app.on('before-quit', (event) => {
+    updater?.cancel()
     if (!backend) return
     event.preventDefault()
     if (stopping) return

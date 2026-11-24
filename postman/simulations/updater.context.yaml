@@ -1,0 +1,37 @@
+purpose:
+  stands_in_for: Public GitHub release metadata requests made by the desktop updater.
+  unblocks: Repeatable handling of rate limits, HTML failures, malformed JSON and request cancellation without changing a real release.
+assumptions:
+  - id: github-public-assets-digest
+    status: supported
+    claim: GitHub release assets can supply a sha256 digest and can be downloaded publicly through their asset API URL, directly or by redirect.
+    reason: The official Assets REST documentation defines these fields and responses; release v2.6.2 was observed with a sha256 digest on 2026-11-24.
+    verification: Read the official asset contract and fetched the actual v2.6.2 release asset metadata. This does not guarantee future assets always contain digests; the updater refuses assets without one.
+    source: https://docs.github.com/en/rest/releases/assets; desktop/updater.cjs
+    updated_at: '2026-11-24'
+  - id: metadata-failure-handling
+    status: supported
+    claim: The updater leaves the installed program unchanged when metadata requests are limited, malformed, fail with HTML or time out.
+    reason: The real updater reached error state in each failure scenario and latest state for an older release, without running its installation code. This establishes caller behavior against this fixture, not GitHub availability.
+    verification: On 2026-11-24 ran postman simulation run postman/simulations/updater.sim.yaml --port 8897 --no-history --output ndjson and node desktop/check-update-simulation.cjs. All five scenarios passed; request events confirmed the metadata path was reached. A test-only HTTP adapter used the one-port route because the Electron production client is not run under a Node proxy here. Separate desktop/updater.test.cjs exercises real HTTP downloads, cancellation, truncation and checksum mismatch.
+    source: desktop/check-update-simulation.cjs; postman/mocks/github-releases/default.js
+    updated_at: '2026-11-24'
+  - id: mock-provenance
+    status: supported
+    claim: This is a repository-owned contract fixture, not a published GitHub-owned mock.
+    reason: The published-owner search failed because gateway.postman.com could not resolve, so a local fixture was written from official documentation.
+    verification: Postman CLI 1.75.0 search mocks GitHub --ownership all returned ENOTFOUND on 2026-11-24. Nothing was published or deployed.
+    source: postman/mocks/github-releases/config.yaml; https://docs.github.com/en/rest/releases/releases
+    updated_at: '2026-11-24'
+  - id: electron-live-asset-download
+    status: supported
+    claim: Electron 45.3.4 can download the observed public v2.6.2 asset through validated GitHub redirects and verify its size and digest.
+    reason: A real packaged Electron probe downloaded 176611198 bytes with the production UpdateManager and Chromium transport, reaching ready only after SHA-256 matched GitHub metadata. Extraction was deliberately skipped in that probe and is tested separately by the Windows helper tests.
+    verification: On 2026-11-24 an isolated packaged app first exposed Electron fetch cancelling manual redirects. Replaced that transport with ClientRequest, validating every redirect before synchronously calling followRedirect. Repeated the real download successfully; the user installation and user workspace were untouched.
+    source: desktop/updater.cjs createElectronFetch; desktop/updater.test.cjs; https://www.electronjs.org/docs/latest/api/client-request
+    updated_at: '2026-11-24'
+fingerprints:
+  - id: initial-updater
+    date: '2026-11-24'
+    commit: codex/desktop-self-update
+    cli: Postman CLI 1.75.0
