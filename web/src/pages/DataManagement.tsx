@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Alert, App, Button, Card, Descriptions, Empty, Segmented, Skeleton, Table, Upload } from 'antd'
 import { DownloadOutlined, UploadOutlined } from '@ant-design/icons'
-import { api } from '../api'
+import { api, downloadDiagnostics, reportClientEvent } from '../api'
 import { useConfig } from '../store/config'
 import { useAppearance, type ColorScheme } from '../store/appearance'
 
 interface DataInfo { root: string; version: string; backups: { name: string; size: number }[] }
 interface Preview { name: string; projectType: string; missingPaths: string[] }
+interface LogInfo { directory: string; operationLog: string; maxFileMiB: number; retainedFiles: number }
 
 function download(contents: string, name: string) {
   const url = URL.createObjectURL(new Blob([contents], { type: 'application/json;charset=utf-8' }))
@@ -28,12 +29,17 @@ export function DataManagementPage({ building }: { building: boolean }) {
   const [busy, setBusy] = useState('')
   const [bundle, setBundle] = useState<Record<string, unknown> | null>(null)
   const [preview, setPreview] = useState<Preview[]>([])
+  const [logInfo, setLogInfo] = useState<LogInfo | null>(null)
   const load = async () => {
     setError('')
     try { setInfo(await api.get<DataInfo>('/api/data/info')) }
     catch (e) { setError(e instanceof Error ? e.message : '读取数据目录失败') }
   }
   useEffect(() => { void load() }, [])
+  useEffect(() => {
+    api.get<LogInfo>('/api/diagnostics/info').then(setLogInfo)
+      .catch((e) => message.error(e instanceof Error ? e.message : '读取日志位置失败'))
+  }, [message])
   const run = async (key: string, action: () => Promise<void>) => {
     setBusy(key)
     try { await action() }
@@ -50,6 +56,30 @@ export function DataManagementPage({ building }: { building: boolean }) {
         options={[{ label: '明亮', value: 'light' }, { label: '黑暗', value: 'dark' }, { label: `跟随系统（当前${dark ? '黑暗' : '明亮'}）`, value: 'system' }]}
         disabled={!!busy} onChange={(value) => { void run('theme', () => setScheme(value)) }} />
       <p className="table-note">主题选择保存在本机，重新启动后继续使用。</p>
+    </Card>
+    <Card title="全局操作日志">
+      <p className="hint">自动记录各页面的后台请求、操作结果、耗时、构建任务和异常；页面切换与前端异常也会记录。失败请求会显示日志编号，方便定位同一次操作。</p>
+      {logInfo && <Descriptions column={1} size="small">
+        <Descriptions.Item label="日志文件"><span className="data-path">{logInfo.operationLog}</span></Descriptions.Item>
+        <Descriptions.Item label="保留策略">单文件 {logInfo.maxFileMiB} MiB，最多保留 {logInfo.retainedFiles} 份，自动轮转</Descriptions.Item>
+      </Descriptions>}
+      <div className="data-actions">
+        <Button icon={<DownloadOutlined />} loading={busy === 'logs'} disabled={!!busy} onClick={() => { void run('logs', async () => {
+          const blob = await downloadDiagnostics()
+          const url = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = url
+          link.download = 'packtool-diagnostics.zip'
+          document.body.appendChild(link)
+          link.click()
+          link.remove()
+          setTimeout(() => URL.revokeObjectURL(url), 1000)
+        }) }}>导出诊断日志</Button>
+        <Button disabled={!!busy || !logInfo} onClick={() => { void run('open-logs', async () => {
+          await api.post('/api/open-dir', { dir: logInfo!.directory })
+        }) }}>打开日志目录</Button>
+      </div>
+      <p className="hint">导出包含全局日志、启动日志、依赖同步日志及最近 10 次构建日志，每个文件最多取末尾 1 MiB，并附截断说明。不会打包配置、数据库或证书文件；日志仍可能包含本机路径和构建工具输出，提交 issue 前请检查。</p>
     </Card>
     <Card title="本机数据与升级保护">
       {error ? <Alert type="error" message={error} action={<Button onClick={() => { void load() }}>重试</Button>} />
@@ -90,7 +120,7 @@ export function DataManagementPage({ building }: { building: boolean }) {
             if (file.size > 2 * 1024 * 1024) throw new Error('配置文件不能超过 2 MiB')
             let parsed: Record<string, unknown>
             try { parsed = JSON.parse(await file.text()) }
-            catch { throw new Error('无法读取 JSON 配置文件') }
+            catch { reportClientEvent('validation', 'config-import'); throw new Error('无法读取 JSON 配置文件') }
             const result = await api.post<{ apps: Preview[] }>('/api/config/import/preview', { bundle: parsed })
             setBundle(parsed)
             setPreview(result.apps)

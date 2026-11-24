@@ -87,6 +87,7 @@ export function PackagesPage() {
       }
       setItems(saved.packages)
       const res = await syncPackages()
+      await reload()
       setSyncResults(res.results)
       setSyncError(res.error || '')
       if (!res.ok || res.summary.error > 0) {
@@ -212,6 +213,15 @@ export function PackagesPage() {
       render: (f: string) => <span className="mono-cell">{f}</span>,
     },
     {
+      title: '依赖来源',
+      dataIndex: 'source',
+      width: 160,
+      render: (source: PackageItem['source'], row) => source === 'sdk'
+        ? <Tag color="blue">当前 SDK，自动恢复</Tag>
+        : source === 'packages' ? <Tag color="green">用户依赖目录</Tag>
+        : <Tag color={row.enabled ? 'red' : 'default'}>{row.enabled ? '缺失，请补齐' : '未提供，未启用'}</Tag>,
+    },
+    {
       title: '说明',
       dataIndex: 'desc',
       ellipsis: { showTitle: false },
@@ -277,8 +287,8 @@ export function PackagesPage() {
       }
     >
       <p className="table-note">
-        勾选要打进 APK 的依赖包（aar/jar，来自 packages/ 目录）。保存后会立即与打包工程
-        simpleDemo/libs 对齐；APK 打包开始时也会自动执行同样的同步。
+        勾选要打进 APK 的依赖包（aar/jar）。内置依赖在用户目录缺失时，会从当前离线 SDK 的
+        simpleDemo/libs 自动恢复；自定义包需上传源文件。请按当前 SDK 提供的模块选择，缺失的可选模块可取消勾选。
       </p>
 
       <div className="table-toolbar">

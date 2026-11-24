@@ -4,6 +4,8 @@ import os
 import re
 import subprocess
 import threading
+import logging
+import uuid
 
 from . import config as config_mod
 from .adb import find_adb
@@ -16,6 +18,7 @@ from .signing import resolve_signing, signing_environment, signing_error
 from .wechat import PLATFORM as WECHAT_PLATFORM, MiniProgramBuild, prepare_wechat_build
 
 CREATE_NO_WINDOW = 0x08000000
+logger = logging.getLogger("packtool.build")
 
 _TARGET_LABELS = {
     ("apk", "debug"): "Android APK (debug)",
@@ -61,6 +64,9 @@ class BuildManager:
             self._idle.clear()
 
         try:
+            task_id = uuid.uuid4().hex[:12]
+            logger.info("build.start task=%s project_type=%s platform=%s mode=%s action=%s",
+                        task_id, cfg.get("projectType"), platform, build_type, action)
             cfg = resolve_signing(cfg)
             plan = None
             env = None
@@ -129,7 +135,7 @@ class BuildManager:
 
             # APK 打包前先同步依赖包（结果写入 build.log，步骤 0 由前端从日志解析展示）
             if platform == "apk" and plan is None:
-                self._sync_dependencies(ts)
+                self._sync_dependencies(ts, cfg)
 
             with self._lock:
                 self._current = {
@@ -146,9 +152,10 @@ class BuildManager:
                     },
                     {**cfg, "wechat": {key: value for key, value in cfg["wechat"].items() if key != "privateKeyPath"}},
                 )
-            threading.Thread(target=self._worker, args=(cmd, plan, env), daemon=True).start()
+            threading.Thread(target=self._worker, args=(cmd, plan, env, task_id), daemon=True).start()
             return True, f"打包任务已启动 ({target_desc})"
         except Exception as e:
+            logger.exception("build.start_failed task=%s", task_id)
             with self._lock:
                 self._running = False
                 self._cancel = False
@@ -159,7 +166,7 @@ class BuildManager:
             return False, f"启动打包失败: {e}"
 
     # ---------- 依赖包同步（构建前） ----------
-    def _sync_dependencies(self, ts: str) -> None:
+    def _sync_dependencies(self, ts: str, cfg: dict | None = None) -> None:
         """把启用的依赖包对齐到 simpleDemo/libs 并写入构建日志；失败则中止打包。"""
         hhmm = ts[11:19]  # 2026-09-15 09:12:33 -> 09:12:33
 
@@ -168,7 +175,7 @@ class BuildManager:
                 f.write(line + "\n")
 
         write(f"[{hhmm}] [STEP] 0|packages|依赖包同步|running")
-        ok, results, summary = packages_mod.sync_packages(log=write)
+        ok, results, summary = packages_mod.sync_packages(log=write, cfg=cfg)
         if ok:
             write(f"[{hhmm}] [STEP] 0|packages|依赖包同步|ok")
             write(f"[{hhmm}] [OK]   依赖包同步完成：新增/更新 {summary['copy']}，移除 {summary['remove']}，跳过 {summary['skip']}")
@@ -179,7 +186,7 @@ class BuildManager:
             raise RuntimeError(f"依赖包同步失败（{summary['error']} 个包出错），已中止打包: {detail}")
 
     # ---------- 工作线程 ----------
-    def _worker(self, cmd: list[str], plan: ProjectBuild | MiniProgramBuild | None, env: dict[str, str] | None) -> None:
+    def _worker(self, cmd: list[str], plan: ProjectBuild | MiniProgramBuild | None, env: dict[str, str] | None, task_id: str = "-") -> None:
         build_id = None
         stage = "0|project|构建项目"
         if isinstance(plan, MiniProgramBuild):
@@ -207,6 +214,8 @@ class BuildManager:
                     proc = self._proc
                 if proc:
                     proc.wait()
+                    logger.log(logging.ERROR if proc.returncode else logging.INFO,
+                               "build.process_exit task=%s build_id=%s exit_code=%s", task_id, build_id, proc.returncode)
             with self._lock:
                 cancelled = self._cancel
             if cancelled:
@@ -230,7 +239,9 @@ class BuildManager:
                             f.write(f"[WECHAT-PREVIEW] {plan.profile}/{plan.receipt}\n")
                     f.write("BUILD-OK\n")
             self._settle_history(build_id)
+            logger.info("build.finished task=%s build_id=%s cancelled=%s", task_id, build_id, cancelled)
         except Exception as e:
+            logger.exception("build.worker_failed task=%s build_id=%s", task_id, build_id)
             with open(BUILD_LOG, "a", encoding="utf-8") as f:
                 if plan:
                     f.write(f"\n[STEP] {stage}|fail\n[ERR] 构建执行异常: {e}\nBUILD-FAILED\n")
@@ -257,13 +268,15 @@ class BuildManager:
             except UnicodeDecodeError:
                 log_text = raw.decode("gbk", errors="replace")
             status = history_mod.resolve_status(log_text)
+            logger.log(logging.ERROR if status == "fail" else logging.INFO,
+                       "build.result build_id=%s status=%s", build_id, status)
             artifact = history_mod.resolve_artifact(log_text)
             log_rel = history_mod.archive_log(build_id)
             history_mod.finish_build(build_id, status, artifact, log_rel)
             history_mod.cleanup()
         except Exception:
             # 历史落库失败不影响打包主流程
-            pass
+            logger.exception("build.history_failed build_id=%s", build_id)
 
     # ---------- 取消 ----------
     def cancel(self) -> tuple[bool, str]:
@@ -272,6 +285,7 @@ class BuildManager:
                 return False, "当前没有正在运行的打包任务"
             self._cancel = True
             pid = self._proc.pid if self._proc else None
+        logger.info("build.cancel_requested pid=%s", pid)
         if pid:
             # 锁外执行 kill：taskkill /T 杀整个进程树（powershell→cmd→java）
             try:
@@ -280,7 +294,7 @@ class BuildManager:
                     capture_output=True, timeout=15, creationflags=CREATE_NO_WINDOW,
                 )
             except Exception:
-                pass
+                logger.exception("build.cancel_failed pid=%s", pid)
         return True, "已发送停止信号，正在结束构建进程"
 
     def stop_and_wait(self, timeout: float) -> None:

@@ -121,6 +121,7 @@ export interface PackageItem {
   required: boolean
   enabled: boolean
   custom?: boolean
+  source?: 'packages' | 'sdk' | 'missing'
 }
 
 export interface PackagesPayload {

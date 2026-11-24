@@ -37,6 +37,12 @@ try {
   fs.mkdirSync(path.join(jdk, 'bin'), { recursive: true })
   for (const exe of ['java.exe', 'javac.exe']) fs.writeFileSync(path.join(jdk, 'bin', exe), '')
   const project = path.join(testRoot, 'test Flutter project')
+  const sdkLibs = path.join(project, 'offline', 'simpleDemo', 'libs')
+  fs.mkdirSync(sdkLibs, { recursive: true })
+  for (const file of ['lib.5plus.base-release.aar', 'uniapp-v8-release.aar', 'install-apk-release.aar',
+    'android-gif-drawable-1.2.29.aar', 'breakpad-build-release.aar', 'oaid_sdk_1.0.25.aar', 'zip4j-2.11.5.jar']) {
+    fs.writeFileSync(path.join(sdkLibs, file), 'SDK fixture ' + file)
+  }
   fs.mkdirSync(path.join(project, 'android'), { recursive: true })
   fs.writeFileSync(path.join(project, 'pubspec.yaml'), 'name: packtool_smoke\n')
   fs.writeFileSync(path.join(project, 'fixture.jks'), 'smoke signing profile fixture')
@@ -70,6 +76,21 @@ try {
   if (!fs.readFileSync(path.join(userData, 'logs', 'startup.log'), 'utf8').includes('Local service ready')) {
     throw new Error('Startup log did not record backend readiness')
   }
+  run(process.env.PACK_TOOL_PYTHON || 'python', ['-c', [
+    'import pathlib, sys, zipfile',
+    'root = pathlib.Path(sys.argv[1])',
+    'with zipfile.ZipFile(root / "diagnostics.zip") as archive:',
+    '    assert "logs/application.log" in archive.namelist()',
+    '    assert "desktop/startup.log" in archive.namelist()',
+    '    assert "diagnostics.json" in archive.namelist()',
+    '    assert not any(name.startswith("config/") for name in archive.namelist())',
+    '    text = "\\n".join(archive.read(name).decode("utf-8") for name in archive.namelist())',
+    '    assert "packtool smoke store password" not in text',
+    '    assert "packtool smoke key password" not in text',
+    '    assert "operation.end method=POST route=/api/config" in text',
+    '    assert "client.event kind=navigation page=data" in text',
+    'assert len(list((root / "workspace/packages").glob("*.aar"))) == 6',
+  ].join('\n'), userData])
   for (const file of ['config/active_app.json', 'data/build_history.db']) {
     if (!fs.existsSync(path.join(workspace, file))) throw new Error('Missing user data: ' + file)
   }

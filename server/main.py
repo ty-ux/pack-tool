@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
+from .diagnostics import OperationLogMiddleware, configure_logging
 from .paths import DIST_DIR
 from .routers.api import router as api_router
 from .staticserve import dist_mount, guide_response
@@ -21,8 +22,17 @@ def create_app(*, allow_dev_proxy: bool = True) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app):
         from .data_safety import ensure_data_version
-        ensure_data_version()
-        yield
+        logger = configure_logging()
+        logger.info("lifecycle.start")
+        try:
+            ensure_data_version()
+            logger.info("lifecycle.ready")
+            yield
+        except Exception:
+            logger.exception("lifecycle.failed")
+            raise
+        finally:
+            logger.info("lifecycle.stop")
 
     app = FastAPI(
         title="App 打包控制台",
@@ -42,6 +52,7 @@ def create_app(*, allow_dev_proxy: bool = True) -> FastAPI:
         )
 
     app.include_router(api_router)
+    app.add_middleware(OperationLogMiddleware)
 
     mount = dist_mount()
     if mount:

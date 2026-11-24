@@ -7,6 +7,7 @@ import {
   getApps,
   getPermissions,
   saveConfig as apiSave,
+  reportClientEvent,
 } from '../api'
 
 export interface ConfigStore {
@@ -143,7 +144,10 @@ export function ConfigStoreProvider({ children }: { children: ReactNode }) {
     if (!config) return { ok: false, error: '配置尚未加载' }
     if (opts?.validate !== false) {
       const missing = validateRequired(config)
-      if (missing) return { ok: false, error: `请填写: ${missing}` }
+      if (missing) {
+        reportClientEvent('validation', 'config')
+        return { ok: false, error: `请填写: ${missing}` }
+      }
     }
     try {
       const res = await apiSave(config)
