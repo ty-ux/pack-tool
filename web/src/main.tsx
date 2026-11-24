@@ -12,8 +12,10 @@ import { AppearanceProvider } from './store/appearance'
 import './global.css'
 import { AppRoot } from './App'
 import { ConfigStoreProvider } from './store/config'
+import { installClientDiagnostics } from './api'
 
 dayjs.locale('zh-cn')
+installClientDiagnostics()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

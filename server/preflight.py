@@ -272,13 +272,13 @@ def run_preflight(draft: dict | None = None) -> dict:
         packages = packages_mod.load_packages()
         missing = [
             p["file"] for p in packages
-            if p.get("enabled") and not os.path.isfile(os.path.join(packages_mod.PACKAGES_DIR, p["file"]))
+            if p.get("enabled") and packages_mod.package_source(p, cfg)[1] == "missing"
         ]
         enabled = sum(1 for p in packages if p.get("enabled"))
         if missing:
-            add("packages", "环境与路径", "依赖包", "error", "packages/ 中缺少已启用依赖：" + "、".join(missing))
+            add("packages", "环境与路径", "依赖包", "error", "用户依赖目录和当前离线 SDK 均缺少已启用依赖：" + "、".join(missing) + "。请补齐文件，或取消勾选缺失的可选模块。")
         else:
-            add("packages", "环境与路径", "依赖包", "ok", f"{enabled} 个已启用依赖的源文件齐全")
+            add("packages", "环境与路径", "依赖包", "ok", f"{enabled} 个已启用依赖可用（用户依赖目录或当前离线 SDK，构建时自动恢复缺失的源文件）")
     except Exception as e:
         add("packages", "环境与路径", "依赖包", "error", f"读取依赖包清单失败：{e}")
 

@@ -22,18 +22,69 @@ import type {
 } from './types'
 
 class ApiError extends Error {
-  constructor(message: string, public status = 0) {
-    super(message)
+  constructor(message: string, public status = 0, public requestId = '', options?: ErrorOptions) {
+    super(message + (requestId ? `（日志编号：${requestId}）` : ''), options)
   }
+}
+
+type ClientPage = 'app' | 'perm' | 'packages' | 'path' | 'install' | 'build' | 'history' | 'keys' | 'data' | 'unknown'
+type ClientEventKind = 'navigation' | 'javascript' | 'unhandled-rejection' | 'network' | 'validation'
+type ClientOperation = 'request' | 'config' | 'config-import' | 'page' | 'runtime'
+interface ClientEvent { kind: ClientEventKind; page: ClientPage; operation: ClientOperation; relatedRequestId: string; errorType?: string; location?: string }
+let currentPage: ClientPage = 'unknown'
+const pendingEvents: ClientEvent[] = []
+let reporting = false
+
+export async function flushClientEvents() {
+  if (reporting || pendingEvents.length === 0) return
+  reporting = true
+  try {
+    while (pendingEvents.length) {
+      const event = pendingEvents[0]
+      try {
+        const response = await fetch('/api/diagnostics/events', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(event), signal: AbortSignal.timeout(3000),
+        })
+        if (response.status >= 500) break
+        const index = pendingEvents.indexOf(event)
+        if (index >= 0) pendingEvents.splice(index, 1)
+      } catch { break }
+    }
+  } finally { reporting = false }
+}
+
+export function reportClientEvent(kind: ClientEventKind, operation: ClientOperation = 'runtime', relatedRequestId = '', error?: unknown) {
+  // Only fixed categories: no form values, exception messages, URLs or credentials.
+  if (pendingEvents.length >= 20) pendingEvents.shift()
+  const names = ['Error', 'TypeError', 'SyntaxError', 'RangeError', 'ReferenceError', 'URIError', 'DOMException']
+  const errorType = error instanceof Error && names.includes(error.name) ? error.name : 'Unknown'
+  const location = error instanceof Error ? error.stack?.match(/\b([A-Za-z0-9_.-]+\.js:\d+:\d+)\b/)?.[1] : ''
+  pendingEvents.push({ kind, page: currentPage, operation, relatedRequestId, errorType, location: location || '' })
+  void flushClientEvents()
+}
+
+export function trackPage(page: ClientPage) {
+  if (currentPage === page) return
+  currentPage = page
+  reportClientEvent('navigation', 'page')
+}
+
+export function installClientDiagnostics() {
+  window.addEventListener('error', (event) => reportClientEvent('javascript', 'runtime', '', event.error))
+  window.addEventListener('unhandledrejection', (event) => reportClientEvent('unhandled-rejection', 'runtime', '', event.reason))
 }
 
 async function request<T>(path: string, init?: RequestInit, allowBusinessFailure = false): Promise<T> {
   let res: Response
   try {
     res = await fetch(path, init)
-  } catch {
-    throw new ApiError('无法连接服务，请确认服务已启动')
+  } catch (cause) {
+    if (!init?.signal?.aborted) reportClientEvent('network', 'request')
+    throw new ApiError('无法连接服务，请确认服务已启动', 0, '', { cause })
   }
+  void flushClientEvents()
+  const requestId = res.headers.get('X-Request-ID') || ''
   let data: { ok?: boolean; error?: string; message?: string; detail?: unknown } | null = null
   try {
     data = await res.json()
@@ -41,11 +92,15 @@ async function request<T>(path: string, init?: RequestInit, allowBusinessFailure
     /* 非 JSON 响应 */
   }
   if (data && data.ok === false && !allowBusinessFailure) {
-    throw new ApiError(data.error || data.message || `请求失败 (${res.status})`, res.status)
+    throw new ApiError(data.error || data.message || `请求失败 (${res.status})`, res.status, requestId)
   }
   if (!res.ok) {
     const detail = typeof data?.detail === 'string' ? data.detail : ''
-    throw new ApiError(detail || `请求失败 (HTTP ${res.status})`, res.status)
+    throw new ApiError(detail || `请求失败 (HTTP ${res.status})`, res.status, requestId)
+  }
+  if (!data) {
+    reportClientEvent('javascript', 'request', requestId)
+    throw new ApiError('服务返回了无效响应，请检查日志', res.status, requestId)
   }
   return data as T
 }
@@ -91,6 +146,12 @@ export const downloadPackageSyncLog = async () => {
     const data = await res.json().catch(() => null)
     throw new ApiError(data?.detail || `日志下载失败 (HTTP ${res.status})`, res.status)
   }
+  return res.blob()
+}
+
+export const downloadDiagnostics = async () => {
+  const res = await fetch('/api/diagnostics/download', { cache: 'no-store' })
+  if (!res.ok) throw new ApiError(`诊断日志导出失败 (HTTP ${res.status})`, res.status, res.headers.get('X-Request-ID') || '')
   return res.blob()
 }
 /** 上传自定义依赖包：FormData 走 multipart，不能带 JSON Content-Type */

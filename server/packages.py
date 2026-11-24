@@ -12,6 +12,7 @@ import os
 import shutil
 import uuid
 import threading
+from pathlib import Path
 from logging.handlers import RotatingFileHandler
 
 from . import __version__
@@ -37,7 +38,7 @@ def _sync_logger() -> logging.Logger:
             handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
             logger.addHandler(handler)
             logger.setLevel(logging.INFO)
-            logger.propagate = False
+            logger.propagate = True
     return logger
 
 # 可管理依赖包清单：id 为稳定标识；required 的包不可取消勾选
@@ -57,11 +58,11 @@ DEFAULT_PACKAGES = [
     {"id": "webview-x5", "file": "webview-x5-release.aar", "type": "aar",
      "label": "X5 WebView 基础模块",
      "desc": "DCloud 离线 SDK 腾讯 X5 WebView，旧 Android Vue 页面兼容",
-     "required": False, "enabled": True},
+     "required": False, "enabled": False},
     {"id": "weex-webview-x5", "file": "weex_webview-x5-release.aar", "type": "aar",
      "label": "X5 uni-app 页面模块",
      "desc": "DCloud 离线 SDK uni-app X5 页面适配模块",
-     "required": False, "enabled": True},
+     "required": False, "enabled": False},
     {"id": "gif", "file": "android-gif-drawable-1.2.29.aar", "type": "aar",
      "label": "GIF 动图库",
      "desc": "支持在 WebView 中播放 GIF 动图",
@@ -140,14 +141,13 @@ def load_packages() -> list[dict]:
 def save_packages(items: list[dict]) -> list[dict]:
     """保存清单：内置包只接受已知 id，required 强制开启；自定义包保留未提及项，避免丢数据。"""
     data = _load_raw()
-    by_id = {p["id"]: p for p in DEFAULT_PACKAGES}
     custom_by_id = {c["id"]: c for c in data["custom"] if str(c.get("id", "")).startswith("custom-")}
 
+    submitted = {it.get("id"): it for it in items if isinstance(it, dict)}
+    previous = {p.get("id"): p for p in data["packages"] if isinstance(p, dict)}
     cleaned = []
-    for it in items:
-        doc = by_id.get(it.get("id"))
-        if not doc:
-            continue
+    for doc in DEFAULT_PACKAGES:
+        it = submitted.get(doc["id"], previous.get(doc["id"], doc))
         cleaned.append({
             **copy.deepcopy(doc),
             "enabled": bool(it.get("enabled", doc["enabled"])) or doc["required"],
@@ -243,9 +243,9 @@ def delete_custom_package(pkg_id: str) -> dict:
     return {"id": pkg_id, "file": name, "label": target.get("label", "")}
 
 
-def _libs_dir() -> str:
+def _libs_dir(cfg: dict | None = None) -> str:
     """simpleDemo/libs 目录（由离线工程路径推导）"""
-    cfg = config_mod.load_config()
+    cfg = config_mod.load_config() if cfg is None else cfg
     integrate = (cfg.get("paths") or {}).get("integrateDir") or ""
     if not integrate or not os.path.isdir(integrate):
         raise FileNotFoundError(f"离线工程目录未配置或不存在: {integrate}，请先在路径配置页设置 integrateDir")
@@ -254,7 +254,55 @@ def _libs_dir() -> str:
     return libs
 
 
-def sync_packages(log=None) -> tuple[bool, list[dict], dict]:
+def _usable(file: Path) -> bool:
+    return file.is_file() and file.stat().st_size > 0
+
+
+def package_source(package: dict, cfg: dict | None = None) -> tuple[Path, str]:
+    """Resolve built-ins from the selected SDK; custom uploads require their own source."""
+    source = Path(PACKAGES_DIR) / package["file"]
+    if _usable(source):
+        return source, "packages"
+    if source.exists():
+        return source, "missing"
+    cfg = config_mod.load_config() if cfg is None else cfg
+    integrate = (cfg.get("paths") or {}).get("integrateDir") or ""
+    sdk = Path(integrate) / "simpleDemo" / "libs" / package["file"]
+    if integrate and not package.get("custom") and _usable(sdk):
+        return sdk, "sdk"
+    return source, "missing"
+
+
+def describe_packages() -> list[dict]:
+    cfg = config_mod.load_config()
+    return [{**package, "source": package_source(package, cfg)[1]} for package in load_packages()]
+
+
+def _cache_sdk_file(source: Path, target: Path) -> None:
+    """Publish a complete SDK copy without overwriting an existing user source."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_name(target.name + "." + uuid.uuid4().hex + ".tmp")
+    try:
+        shutil.copy2(source, temporary)
+        try:
+            os.link(temporary, target)
+        except FileExistsError:
+            pass
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _same_file_content(first: Path, second: Path) -> bool:
+    if not second.is_file() or first.stat().st_size != second.stat().st_size:
+        return False
+    with first.open("rb") as left, second.open("rb") as right:
+        while block := left.read(1024 * 1024):
+            if block != right.read(len(block)):
+                return False
+    return True
+
+
+def sync_packages(log=None, cfg: dict | None = None) -> tuple[bool, list[dict], dict]:
     """把 packages/ 按清单对齐到 simpleDemo/libs。
 
     log: 可选回调 (str) -> None，用于把进度写入构建日志。
@@ -273,7 +321,8 @@ def sync_packages(log=None) -> tuple[bool, list[dict], dict]:
     results: list[dict] = []
     summary = {"copy": 0, "remove": 0, "skip": 0, "error": 0}
     try:
-        libs = _libs_dir()
+        cfg = config_mod.load_config() if cfg is None else cfg
+        libs = _libs_dir(cfg)
         logger.info("[%s] target=%s", sync_id, libs)
         packages = load_packages()
         managed = {p["file"]: p for p in packages}
@@ -283,9 +332,15 @@ def sync_packages(log=None) -> tuple[bool, list[dict], dict]:
                 "id": p["id"], "label": p["label"], "file": p["file"],
                 "type": p["type"], "action": "skip", "message": "",
             }
-            src = os.path.join(PACKAGES_DIR, p["file"])
-            dst = os.path.join(libs, p["file"])
+            src = Path(PACKAGES_DIR) / p["file"]
+            dst = Path(libs) / p["file"]
             try:
+                recovered = False
+                # Preserve the SDK's only copy before a disabled dependency is removed.
+                if not p.get("custom") and not src.exists() and _usable(dst):
+                    _cache_sdk_file(dst, src)
+                    recovered = True
+                    emit(f"[{_now()}] [OK]   从当前离线 SDK 恢复 {p['label']} 到 {src}")
                 if not p["enabled"]:
                     if os.path.exists(dst):
                         os.remove(dst)
@@ -296,13 +351,13 @@ def sync_packages(log=None) -> tuple[bool, list[dict], dict]:
                         item["message"] = f"未勾选，libs 中无此文件"
                     summary["remove" if item["action"] == "remove" else "skip"] += 1
                 else:
-                    if not os.path.exists(src):
+                    if not _usable(src):
                         item["action"] = "error"
-                        item["message"] = f"源文件缺失: {src}（可将 SDK libs 内文件复制到 packages/）"
+                        item["message"] = f"源文件缺失: {src}；当前离线 SDK 的 simpleDemo/libs 也无可用文件。请补齐匹配当前 SDK 的依赖" + ("，或在依赖包页取消勾选此可选模块" if not p["required"] else "")
                         emit(f"[{_now()}] [ERR] {p['label']} 源文件缺失: {src}")
                         summary["error"] += 1
-                    elif os.path.exists(dst) and os.path.getsize(dst) == os.path.getsize(src):
-                        item["message"] = "已是最新，跳过"
+                    elif _same_file_content(src, dst):
+                        item["message"] = "已从当前 SDK 恢复源文件，保留工程依赖" if recovered else "内容一致，跳过"
                         summary["skip"] += 1
                         emit(f"[{_now()}] [INFO] {p['label']} 已是最新")
                     else:

@@ -6,7 +6,7 @@ from typing import Literal, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .. import adb as adb_mod
 from .. import apps as apps_mod
@@ -18,6 +18,7 @@ from .. import preflight as preflight_mod
 from .. import signing_keys
 from .. import config_transfer, data_safety
 from .. import preferences
+from .. import diagnostics
 from ..builder import build_manager
 from ..local_tools import discover_tools
 from ..paths import BUILD_LOG
@@ -27,6 +28,37 @@ from ..wechat import NATIVE_TYPE, PLATFORM as WECHAT_PLATFORM, preview_file
 
 router = APIRouter(prefix="/api")
 CREATE_NO_WINDOW = 0x08000000
+
+
+class ClientEventBody(BaseModel):
+    kind: Literal["navigation", "javascript", "unhandled-rejection", "network", "validation"]
+    page: Literal["app", "perm", "packages", "path", "install", "build", "history", "keys", "data", "unknown"] = "unknown"
+    operation: Literal["request", "config", "config-import", "page", "runtime"] = "runtime"
+    relatedRequestId: str = Field(default="", max_length=16, pattern=r"^(?:[a-f0-9]{16})?$")
+    errorType: Literal["Error", "TypeError", "SyntaxError", "RangeError", "ReferenceError", "URIError", "DOMException", "Unknown"] = "Unknown"
+    location: str = Field(default="", max_length=200, pattern=r"^[a-zA-Z0-9_.:-]*$")
+
+
+@router.post("/diagnostics/events")
+def client_event(body: ClientEventBody):
+    # Fixed categories only: never receive form values or arbitrary client error strings.
+    logger = diagnostics.configure_logging()
+    logger.log(20 if body.kind == "navigation" else 30,
+               "client.event kind=%s page=%s operation=%s related_request=%s type=%s location=%s",
+               body.kind, body.page, body.operation, body.relatedRequestId or "-", body.errorType, body.location or "-")
+    return {"ok": True}
+
+
+@router.get("/diagnostics/info")
+def diagnostics_info():
+    return {"ok": True, **diagnostics.log_info()}
+
+
+@router.get("/diagnostics/download")
+def download_diagnostics():
+    return Response(diagnostics.diagnostic_bundle(), media_type="application/zip", headers={
+        "Content-Disposition": 'attachment; filename="packtool-diagnostics.zip"', "Cache-Control": "no-store",
+    })
 
 
 class ImportConfigBody(BaseModel):
@@ -323,7 +355,7 @@ def get_app_icon(icon: Optional[str] = None):
 # ---------------- 依赖包管理 ----------------
 @router.get("/packages")
 def get_packages():
-    return {"ok": True, "packages": packages_mod.load_packages()}
+    return {"ok": True, "packages": packages_mod.describe_packages()}
 
 
 class SavePackagesBody(BaseModel):

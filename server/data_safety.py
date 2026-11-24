@@ -19,7 +19,7 @@ _lock = threading.RLock()
 PERSISTENT_DIRS = ("config", "packages", "logs", "data", "output", "icon")
 GRADLE_CACHE_DIRS = frozenset(("caches", "daemon", "native", "wrapper", ".tmp",
                                "kotlin-profile", "notifications", "workers", "jdks"))
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("packtool.data")
 
 
 def _backup_files(root: Path):

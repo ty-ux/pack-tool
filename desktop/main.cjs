@@ -200,6 +200,26 @@ async function openWindow() {
     })()
   `)
   if (!sharedKeys) throw new Error('Shared signing profile selection, encryption or usage protection failed')
+  const diagnostics = await contents.executeJavaScript(`
+    (async () => {
+      const profile = await fetch('/api/apps').then(response => response.json())
+      profile.config.paths.integrateDir = ${JSON.stringify(path.join(process.env.PACK_TOOL_SMOKE_PROJECT, 'offline'))}
+      const saved = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: profile.config }) }).then(response => response.json())
+      if (!saved.ok) return null
+      const synced = await fetch('/api/packages/sync', { method: 'POST' }).then(response => response.json())
+      if (!synced.ok || synced.summary.error) return null
+      await fetch('/api/diagnostics/events', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'navigation', page: 'data', operation: 'page' }) })
+      const info = await fetch('/api/diagnostics/info').then(response => response.json())
+      if (!info.ok || !info.operationLog.endsWith('application.log')) return null
+      const response = await fetch('/api/diagnostics/download')
+      if (!response.ok || !response.headers.get('X-Request-ID')) return null
+      return Array.from(new Uint8Array(await response.arrayBuffer()))
+    })()
+  `)
+  if (!diagnostics) throw new Error('SDK dependency recovery or global diagnostics export failed')
+  require('node:fs').writeFileSync(path.join(app.getPath('userData'), 'diagnostics.zip'), Buffer.from(diagnostics))
   app.quit()
 }
 

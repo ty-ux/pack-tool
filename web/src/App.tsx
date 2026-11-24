@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { App as AntApp, Button, Drawer, Dropdown, Result, Skeleton } from 'antd'
 import { ReloadOutlined, SaveOutlined, SyncOutlined } from '@ant-design/icons'
 import { useConfig } from './store/config'
@@ -14,6 +14,7 @@ import { BuildHistory } from './components/BuildHistory'
 import { SigningKeysPage } from './pages/SigningKeys'
 import { DataManagementPage } from './pages/DataManagement'
 import { useAppearance, type ColorScheme } from './store/appearance'
+import { trackPage } from './api'
 
 interface PageMeta {
   title: string
@@ -66,6 +67,7 @@ export function AppRoot() {
   const isUniApp = !config || config.projectType === 'uniapp'
   const tab = !isUniApp && ['perm', 'packages', 'install'].includes(selectedTab) ? 'app' : selectedTab
   const page = PAGES[tab] ?? PAGES.app
+  useEffect(() => { trackPage(tab as Parameters<typeof trackPage>[0]) }, [tab])
   const navigate = async (next: string) => {
     if (['keys', 'data'].includes(next) && dirty) {
       const result = await save({ validate: false })
